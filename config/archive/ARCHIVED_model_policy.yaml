@@ -1,0 +1,9 @@
+selection_policy: lowest_chronological_test_mae
+ml1:
+  candidates: [random_forest, xgboost]
+ml2:
+  candidates: [random_forest, xgboost]
+  allow_simulated_training_by_default: false
+dashboard:
+  retraining_allowed: false
+  source: outputs/published/operation_state_5min.csv

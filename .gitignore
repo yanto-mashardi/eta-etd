@@ -1,0 +1,42 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+.next/
+**/.next/
+
+# Backup / temporary
+backups/
+_BACKUP_BEFORE_REFACTOR_*/
+*BACKUP*
+*_DUPLICATE_*
+notebooks/.ipynb_checkpoints/
+
+# Runtime
+logs/
+outputs/RUN_*/
+outputs/02_ml2_turnaround/
+outputs/realtime/
+
+# Large/raw data
+data/01_DATA_SOURCE/CCTV/video/
+data/01_DATA_SOURCE/AIS/historical/
+data/input/ais/raw/
+
+# Streaming/runtime data
+web/ferry-dashboard/public/yolo-hls/
+
+# Packages
+*.zip
+
+# Secrets
+.env
+.env.*
+
+# OS
+desktop.ini
+.DS_Store

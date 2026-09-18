@@ -1,0 +1,10 @@
+{
+  "raw_rows": 164522,
+  "clean_ais_rows": 164522,
+  "detected_arrivals": 4235,
+  "ml1_samples": 8324,
+  "legs": 3438,
+  "corridor_reference_nm": 4.218,
+  "first_arrival": "2024-01-01 07:38:51+00:00",
+  "last_arrival": "2024-12-17 09:31:05+00:00"
+}

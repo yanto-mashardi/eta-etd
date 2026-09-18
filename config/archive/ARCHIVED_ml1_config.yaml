@@ -1,0 +1,38 @@
+# Ubah koordinat terminal dan nama kolom bila AIS Anda tidak dapat dideteksi otomatis.
+input_file: data/input/ais/raw/ais_raw_2024.csv
+shared_ports_file: config/ports_berths.yaml
+timezone: Asia/Jakarta
+
+# Waktu tiba aktual ML1 = saat kapal pertama memasuki arrival zone terminal.
+# Jarak ke terminal = jarak minimum ke salah satu titik dermaga terminal tersebut.
+ports:
+  Bengkalis:
+    berths:
+      - {name: BENGKALIS_BERTH_1, lat: 1.449921, lon: 102.136747}
+      - {name: BENGKALIS_BERTH_2, lat: 1.449491, lon: 102.138242}
+  Pakning:
+    berths:
+      - {name: PAKNING_BERTH_1, lat: 1.380001, lon: 102.148561}
+      - {name: PAKNING_BERTH_2, lat: 1.378790, lon: 102.149836}
+
+# Definisi operasional
+# Radius awal 0.15 NM harus dikalibrasi dengan sebaran titik berhenti AIS.
+# Parameter ini dipakai untuk "destination entry", bukan full-stop/berthing.
+port_radius_nm: 0.15
+sailing_speed_min_kn: 3.0
+sailing_speed_max_kn: 15.0
+max_approach_hours: 3
+max_corridor_distance_factor: 1.5
+sample_every_minutes: 5
+min_arrival_separation_minutes: 45
+max_service_leg_minutes: 90
+random_state: 42
+
+# Kosongkan nilai di bawah untuk pendeteksian otomatis.
+columns:
+  timestamp: created_at
+  mmsi: mmsi
+  latitude: lat
+  longitude: lon
+  sog: sog
+  cog: cog

@@ -1,0 +1,214 @@
+project_name: JAES_SIMULASI_BIMA2
+architecture_version: BIMA2_YEAR2_METHOD_ALIGNED_V12
+timezone: Asia/Jakarta
+
+runtime:
+  python_environment_windows: 'C:\LOCAL_RUN_venv\.venv'
+  tools_root_windows: 'C:\LOCAL_RUN_venv'
+  inference_mode: realtime
+  interval_minutes: 5
+  dashboard_refresh_seconds: 1
+
+research:
+  year: 2
+  arrival_definition: terminal_berth_arrival
+  etd_definition: ETA_corrected + turnaround_base + turnaround_correction_ML2
+  weather_used: false
+  validation:
+    split_method: chronological
+    test_ratio: 0.20
+    split_unit_ml1: service_leg
+    split_unit_ml2: turnaround_event
+    realtime_data_used_for_training: false
+  operational_holdout:
+    month: 3
+    service_window_start: '07:00'
+    service_window_end: '23:55'
+  reliability_indicator:
+    sailing_speed_min_kn: 3.0
+    sailing_speed_max_kn: 15.0
+    reliable_speed_min_kn: 7.0
+    reliable_speed_max_kn: 9.0
+
+ports:
+  BENGKALIS:
+    berths:
+      - id: BENGKALIS_BERTH_1
+        lat: 1.449921
+        lon: 102.136747
+      - id: BENGKALIS_BERTH_2
+        lat: 1.449491
+        lon: 102.138242
+  PAKNING:
+    berths:
+      - id: PAKNING_BERTH_1
+        lat: 1.380001
+        lon: 102.148561
+      - id: PAKNING_BERTH_2
+        lat: 1.378790
+        lon: 102.149836
+
+ml1:
+  purpose: ETA_correction
+  input_file: data/input/ais/raw/ais_raw_2024.csv
+  historical_source: data/01_DATA_SOURCE/AIS/historical
+  models: [random_forest, xgboost]
+  selection_metric: chronological_test_mae_min
+  target_event:
+    type: terminal_berth_arrival
+    berth_radius_nm: 0.15
+    max_sog_kn: 0.8
+  max_approach_hours: 3
+  max_corridor_distance_factor: 1.5
+  sample_every_minutes: 5
+  min_arrival_separation_minutes: 45
+  max_service_leg_minutes: 90
+  random_state: 42
+  columns:
+    timestamp: created_at
+    mmsi: mmsi
+    latitude: lat
+    longitude: lon
+    sog: sog
+    cog: cog
+
+ml2:
+  purpose: turnaround_correction
+  historical_vehicle_source: data/01_DATA_SOURCE/VEHICLE_HISTORICAL
+  historical_ais_source: data/01_DATA_SOURCE/AIS/historical
+  cctv_history_source: data/01_DATA_SOURCE/CCTV/historical
+  models: [random_forest, xgboost]
+  selection_metric: chronological_test_mae_min
+  berth_radius_nm: 0.15
+  berth_max_sog_kn: 0.8
+  min_turnaround_min: 3
+  max_turnaround_min: 180
+  demand_features:
+    use_historical_prediction: true
+    use_realtime_cctv_observation: true
+    predicted_profile_interval_minutes: 5
+  behavioral_rule:
+    low_demand_ratio_threshold: 0.35
+    feature_name: low_demand_flag
+  features:
+    - mmsi
+    - terminal
+    - arrival_hour
+    - arrival_dow
+    - capacity_pce
+    - turnaround_base_min
+    - predicted_car_5min
+    - predicted_motor_5min
+    - predicted_pce_5min
+    - observed_car_5min
+    - observed_motor_5min
+    - observed_pce_5min
+    - demand_capacity_ratio
+    - low_demand_flag
+
+models:
+  ml1_dir: models/ML1_ETA_CORRECTION
+  ml2_dir: models/ML2_TURNAROUND_CORRECTION
+  yolo_weights: models/YOLO/best.pt
+  active_registry: config/registry/active_model_config.yaml
+  selection_policy: lowest_chronological_test_mae
+  dashboard_retraining_allowed: false
+
+vessels:
+  capacity_master: config/vessel_capacity_realtime_v4.csv
+  require_capacity_provenance: true
+
+ais:
+  mode: api
+  api:
+    endpoint: ''
+    endpoint_env: AIS_API_URL
+    api_key_env: AIS_API_KEY
+    auth_header: Authorization
+    auth_scheme: Bearer
+    timeout_seconds: 15
+    poll_seconds: 10
+    output_file: data/01_DATA_SOURCE/AIS/realtime/ais_realtime.csv
+    history_file: data/01_DATA_SOURCE/AIS/realtime/ais_realtime_history.csv
+    raw_dir: data/01_DATA_SOURCE/AIS/realtime/raw
+    store_raw_payload: false
+    append_history: true
+  replay:
+    source_dir: data/01_DATA_SOURCE/AIS/replay
+    chronological: true
+  vessel_filter:
+    mmsi_whitelist: [525002060, 525002121, 525003298, 525015047, 525100240]
+    use_destination: false
+  corridor_filter:
+    enabled: true
+    buffer_nm: 2.0
+  quality_control:
+    naive_timestamp_timezone: Asia/Jakarta
+    heading_not_available: 511
+    turn_not_available: -128
+    max_data_age_seconds: 300
+    keep_stale_visible_on_map: true
+    allow_stale_for_inference: false
+  field_map:
+    timestamp: timestamp
+    mmsi: mmsi
+    latitude: lat
+    longitude: lon
+    sog: speed
+    cog: course
+    heading: heading
+    turn: turn
+    nav_status: status
+    accuracy: accuracy
+    imo: imo
+    callsign: callsign
+    shipname: shipname
+    ship_type: ship_type
+    draught: draught
+    destination_reported: destination
+    ais_update_at: update_at
+  realtime_storage:
+    current_state: data/01_DATA_SOURCE/AIS/realtime/ais_current_state.json
+    normalized_history_csv: data/01_DATA_SOURCE/AIS/realtime/ais_realtime_history.csv
+    historical_sink: mysql
+
+cctv:
+  aggregation_interval_minutes: 5
+  yolo:
+    weights: models/YOLO/best.pt
+    tracker: bytetrack
+    classes: [car, motorcycle]
+  terminals:
+    BENGKALIS:
+      mode: physical_rtsp
+      camera_id: BENGKALIS_CCTV_01
+      rtsp_url: rtsp://127.0.0.1:8554/cctv_bengkalis
+      annotated_rtsp_url: rtsp://127.0.0.1:8554/cctv_bengkalis_yolo
+      state_file: data/01_DATA_SOURCE/CCTV/output/vehicle_state.json
+    PAKNING:
+      mode: unavailable
+      fallback: historical_prediction
+      state_file: data/01_DATA_SOURCE/CCTV/output/pakning/vehicle_state.json
+
+queue:
+  module_role: operational_simulation_not_ml2
+  car_pce: 1.0
+  motorcycle_pce: 0.25
+  motorcycle_pce_sensitivity: [0.20, 0.25, 0.30]
+  deduction_trigger: confirmed_vessel_departure_after_berth_visit
+  ledger: outputs/realtime/queue_service_state.json
+  event_log: outputs/realtime/queue_service_events.jsonl
+
+integration:
+  realtime_serving_state: outputs/realtime/current_operation_state.json
+  realtime_port_states:
+    BENGKALIS: outputs/realtime/current_bengkalis_state.json
+    PAKNING: outputs/realtime/current_pakning_state.json
+  research_history_5min: outputs/history/operation_state_5min.csv
+  research_history_tick_minutes: 5
+  historical_demand_profile: outputs/history/historical_demand_profile_5min.csv
+
+safety:
+  overwrite_legacy_files: false
+  legacy_config_policy: archive_read_only
+  destination_field_is_filter: false

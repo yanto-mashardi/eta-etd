@@ -1,0 +1,8 @@
+cd C:\YOLO_Vehicle_Count
+.\.venv\Scripts\Activate.ps1
+python setup_roi.py
+
+cd C:\YOLO_Vehicle_Count
+.\.venv\Scripts\Activate.ps1
+python count_vehicle_roi.py
+

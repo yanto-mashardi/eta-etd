@@ -1,0 +1,44 @@
+{
+  "target_source": "AIS_TERMINAL_BERTH_TURNAROUND",
+  "arrival_definition": "terminal_berth_arrival",
+  "feature_source": "HISTORICAL_DEMAND_PLUS_CCTV_OBSERVATION",
+  "ais_sources": [
+    {
+      "file": "H:\\My Drive\\LOCAL_RUN\\JAES_SIMULASI_BIMA2\\data\\01_DATA_SOURCE\\AIS\\historical\\ais_raw_2024.csv",
+      "rows": 164522
+    }
+  ],
+  "ais_skipped": [],
+  "demand_sources": [
+    {
+      "file": "H:\\My Drive\\LOCAL_RUN\\JAES_SIMULASI_BIMA2\\data\\01_DATA_SOURCE\\CCTV\\historical\\bengkalis\\cctv_5min_bengkalis_202609.csv",
+      "kind": "OBSERVED_5MIN",
+      "rows": 3
+    },
+    {
+      "file": "H:\\My Drive\\LOCAL_RUN\\JAES_SIMULASI_BIMA2\\data\\01_DATA_SOURCE\\CCTV\\historical\\dummy\\SIMULATED_vehicle_rate_5min.csv",
+      "kind": "HISTORICAL_PROFILE",
+      "rows": 4032
+    },
+    {
+      "file": "H:\\My Drive\\LOCAL_RUN\\JAES_SIMULASI_BIMA2\\data\\01_DATA_SOURCE\\CCTV\\historical\\pakning\\cctv_5min_pakning_202609.csv",
+      "kind": "OBSERVED_5MIN",
+      "rows": 3
+    },
+    {
+      "file": "H:\\My Drive\\LOCAL_RUN\\JAES_SIMULASI_BIMA2\\data\\01_DATA_SOURCE\\VEHICLE_HISTORICAL\\manifest\\SIMULATED_dummy_manifest_ML2_2024.xlsx",
+      "kind": "PROJECT_MANIFEST_07_SIM_5MIN",
+      "rows": 26208,
+      "terminal": "BENGKALIS"
+    },
+    {
+      "file": "H:\\My Drive\\LOCAL_RUN\\JAES_SIMULASI_BIMA2\\data\\01_DATA_SOURCE\\VEHICLE_HISTORICAL\\manifest\\SIMULATED_dummy_manifest_ML2_2024.xlsx",
+      "kind": "PROJECT_MANIFEST_07_SIM_5MIN",
+      "rows": 26208,
+      "terminal": "PAKNING"
+    }
+  ],
+  "demand_skipped": [],
+  "turnaround_events": 2549,
+  "paired_rows": 2549
+}

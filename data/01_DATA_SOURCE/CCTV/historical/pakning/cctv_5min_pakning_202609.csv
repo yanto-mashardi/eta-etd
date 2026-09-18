@@ -1,0 +1,4 @@
+timestamp_5min,camera_id,port,car_rate_5min,motor_rate_5min,pce_rate_5min,car_out,motor_out,car_in_total,car_out_total,motor_in_total,motor_out_total,car_queue_current,motor_queue_current,total_queue_current,algorithm,source_status
+2026-09-16T21:10,cctv_pakning,PAKNING,0,0,0.0,0,0,0,0,0,0,0,0,0,v4.4_dual_port_5min_rate,OBSERVED_OR_USER_RECORDING
+2026-09-16T21:15,cctv_pakning,PAKNING,0,0,0.0,0,0,0,0,0,0,0,0,0,v4.4_dual_port_5min_rate,OBSERVED_OR_USER_RECORDING
+2026-09-16T21:20,cctv_pakning,PAKNING,0,0,0.0,0,0,0,0,0,0,0,0,0,v4.4_dual_port_5min_rate,OBSERVED_OR_USER_RECORDING

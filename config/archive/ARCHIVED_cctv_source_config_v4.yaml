@@ -1,0 +1,24 @@
+cctv:
+  mode: simulated_rtsp  # simulated_rtsp | physical_rtsp
+  camera_id: BENGKALIS_CCTV_01
+  tools_root: 'C:\\LOCAL_RUN_venv'
+  auto_discover_ffmpeg: true
+  auto_discover_mediamtx: true
+  simulated_rtsp:
+    video_dir: data/01_DATA_SOURCE/CCTV/video
+    video_file: cctv_input.mp4
+    rtsp_url: rtsp://127.0.0.1:8554/cctv_bengkalis
+  physical_rtsp:
+    rtsp_url: ''
+  yolo:
+    weights: models/YOLO/best.pt
+    tracker: bytetrack
+    classes:
+      - car
+      - motorcycle
+  aggregation:
+    mode: fixed_interval
+    interval_minutes: 5
+  output:
+    event_log: data/01_DATA_SOURCE/CCTV/output/vehicle_events.csv
+    observation_5min: data/01_DATA_SOURCE/CCTV/output/vehicle_observation_5min.csv

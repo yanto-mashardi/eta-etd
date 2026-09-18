@@ -1,0 +1,8 @@
+timestep_minutes: 5
+service_window_utc:
+  start: "07:00"
+  end: "23:55"
+replay_seconds_per_tick: 1
+show_all_vessels: true
+berths_per_terminal: 2
+output_contract: outputs/published/operation_state_5min.csv

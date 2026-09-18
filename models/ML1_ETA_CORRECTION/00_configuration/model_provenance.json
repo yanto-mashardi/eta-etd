@@ -1,0 +1,11 @@
+{
+  "model": "ML1_ETA_CORRECTION",
+  "source_project": "Ferry Prediction System/01_ML1_ETA_AIS",
+  "model_files": [
+    "ml1_random_forest.joblib",
+    "ml1_xgboost.joblib"
+  ],
+  "training_split": "chronological service-leg 80/20",
+  "status": "MIGRATED_LEGACY_MODEL_REQUIRES_BIMA2_REVALIDATION",
+  "data_source": "AIS historical"
+}

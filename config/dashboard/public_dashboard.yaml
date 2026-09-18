@@ -1,0 +1,29 @@
+version: 6
+mode: realtime_only
+timezone: Asia/Jakarta
+refresh_seconds: 5
+layout:
+  desktop_mode: single_screen_cockpit
+  desktop_scroll: false
+  compact_topbar: true
+  map_size: compact
+  show_cctv_raw: true
+  show_cctv_yolo: true
+  show_yolo_counters: true
+public_pages:
+  bengkalis:
+    current_state: outputs/realtime/current_bengkalis_state.json
+    cctv_state: data/01_DATA_SOURCE/CCTV/output/vehicle_state.json
+    cctv_raw_webrtc: http://127.0.0.1:8889/cctv_bengkalis/
+    cctv_yolo_webrtc: http://127.0.0.1:8889/cctv_bengkalis_yolo/
+  pakning:
+    current_state: outputs/realtime/current_pakning_state.json
+    cctv_state_env: CCTV_PAKNING_STATE_PATH
+    cctv_raw_webrtc_env: CCTV_PAKNING_WEBRTC_RAW_URL
+    cctv_yolo_webrtc_env: CCTV_PAKNING_WEBRTC_YOLO_URL
+rules:
+  dashboard_reads_historical_holdout: false
+  dashboard_reads_vehicle_observation_5min: false
+  cctv_counts_are_persistent: true
+  queue_decreases_from_loaded_vehicle_state: true
+  realtime_clock_source: laptop

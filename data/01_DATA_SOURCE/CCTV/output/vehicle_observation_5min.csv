@@ -1,0 +1,8 @@
+timestamp_5min,camera_id,port,car_in,car_out,motor_in,motor_out,car_in_total,car_out_total,motor_in_total,motor_out_total,car_queue_current,motor_queue_current,total_queue_current,algorithm
+2026-09-16T17:15,cctv_bengkalis,BENGKALIS,0,0,1,0,0,0,1,0,0,1,1,v4.2_roi_hysteresis
+2026-09-16T17:30,cctv_bengkalis,BENGKALIS,0,0,0,0,0,0,1,0,0,1,1,v4.3_robust_crossing
+2026-09-16T17:35,cctv_bengkalis,BENGKALIS,3,0,0,0,3,0,1,0,3,1,4,v4.3_robust_crossing
+2026-09-16T17:40,cctv_bengkalis,BENGKALIS,0,0,0,0,3,0,1,0,3,1,4,v4.3_robust_crossing
+2026-09-16T17:45,cctv_bengkalis,BENGKALIS,0,0,0,0,3,0,1,0,3,1,4,v4.3_robust_crossing
+2026-09-16T17:50,cctv_bengkalis,BENGKALIS,0,0,0,0,3,0,1,0,3,1,4,v4.3_robust_crossing
+2026-09-16T17:55,cctv_bengkalis,BENGKALIS,0,0,0,0,3,0,1,0,3,1,4,v4.3_robust_crossing

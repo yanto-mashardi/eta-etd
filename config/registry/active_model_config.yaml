@@ -1,0 +1,17 @@
+run_id: BIMA2_YEAR2_V12_FULL_20260918_020145
+ml1_eta:
+  active: random_forest
+  alternatives:
+  - random_forest
+  - xgboost
+  selection_metric: chronological_test_mae_min
+  arrival_definition: terminal_berth_arrival
+  metrics_source: outputs/RUN_001_20260912_PC_P4MP/01_ml1_eta/tables/metrics_comparison.csv
+ml2_turnaround:
+  active: random_forest
+  alternatives:
+  - random_forest
+  - xgboost
+  selection_metric: chronological_test_mae_min
+  target: turnaround_correction
+  metrics_source: outputs/02_ml2_turnaround/tables/ml2_model_metrics.csv

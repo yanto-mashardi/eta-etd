@@ -1,0 +1,10 @@
+run_id: 2024_holdout20_replay_v1
+data_period: 2024
+mode: historical_replay
+test_ratio: 0.20
+simulation_timestep_minutes: 5
+replay_seconds_per_tick: 1
+models:
+  ml1_eta: [random_forest, xgboost]
+  ml2_turnaround: [random_forest, xgboost]
+active_model_policy: lowest_chronological_test_mae

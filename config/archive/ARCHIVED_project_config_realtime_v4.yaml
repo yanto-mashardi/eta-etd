@@ -1,0 +1,54 @@
+project_name: JAES_SIMULASI_BIMA2
+architecture_version: LOCAL_RUN_REALTIME_V4
+runtime:
+  python_environment: 'C:\LOCAL_RUN_venv\.venv'
+  tools_root: 'C:\LOCAL_RUN_venv'
+  auto_discover_external_tools: true
+
+system:
+  inference_mode: realtime
+  interval_minutes: 5
+  dashboard_refresh_seconds: 1
+
+training:
+  split_method: chronological
+  test_ratio: 0.20
+  validation_source: historical_only
+  ml1_source: data/01_DATA_SOURCE/AIS/historical
+  ml2_source: data/01_DATA_SOURCE/VEHICLE_HISTORICAL
+  realtime_data_used_for_training: false
+
+data_source:
+  ais:
+    mode: api
+    historical_dir: data/01_DATA_SOURCE/AIS/historical
+    replay_dir: data/01_DATA_SOURCE/AIS/replay
+    realtime_dir: data/01_DATA_SOURCE/AIS/realtime
+    normalized_contract: data/01_DATA_SOURCE/AIS/realtime/ais_realtime.csv
+  cctv:
+    mode: simulated_rtsp
+    video_dir: data/01_DATA_SOURCE/CCTV/video
+    rtsp_url: rtsp://127.0.0.1:8554/cctv_bengkalis
+    annotated_rtsp_url: rtsp://127.0.0.1:8554/cctv_bengkalis_yolo
+    observation_contract: data/01_DATA_SOURCE/CCTV/output/vehicle_observation_5min.csv
+    event_log: data/01_DATA_SOURCE/CCTV/output/vehicle_events.csv
+  vehicle_historical:
+    dir: data/01_DATA_SOURCE/VEHICLE_HISTORICAL
+
+models:
+  ml1_dir: models/ML1_ETA_CORRECTION
+  ml2_dir: models/ML2_TURNAROUND_CORRECTION
+  yolo_weights: models/YOLO/best.pt
+  active_registry: config/registry/active_model_config.yaml
+
+integration:
+  operation_state_output: outputs/operation_state/operation_state_5min.csv
+  cctv_state: data/01_DATA_SOURCE/CCTV/output/vehicle_observation_5min.csv
+  realtime_history_days: 14
+  tick_minutes: 5
+
+safety:
+  overwrite_legacy_files: false
+  legacy_files_read_only: true
+  keep_raw_ais_api: true
+  destination_field_is_filter: false

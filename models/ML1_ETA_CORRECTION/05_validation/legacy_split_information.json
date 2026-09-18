@@ -1,0 +1,22 @@
+{
+  "split_unit": "service leg grouped by actual arrival time",
+  "train_legs": 2750,
+  "test_legs": 688,
+  "train_arrival_start": "2024-01-01 07:38:51+00:00",
+  "train_arrival_end": "2024-10-31 09:30:04+00:00",
+  "test_arrival_start": "2024-10-31 11:00:05+00:00",
+  "test_arrival_end": "2024-12-17 09:31:05+00:00",
+  "features": [
+    "distance_to_destination_nm",
+    "sog_kn",
+    "cog_deg",
+    "heading_error_deg",
+    "eta_baseline_min",
+    "hour",
+    "day_of_week",
+    "mmsi",
+    "origin_port",
+    "destination_port"
+  ],
+  "target": "eta_residual_min"
+}

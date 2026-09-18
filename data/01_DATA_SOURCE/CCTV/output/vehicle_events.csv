@@ -1,0 +1,5 @@
+timestamp,camera_id,port,track_id,class,confidence,direction,event,car_in_total,car_out_total,motor_in_total,motor_out_total,car_queue_current,motor_queue_current,algorithm
+2026-09-16T17:16:29,cctv_bengkalis,BENGKALIS,188,MOTOR,0.864,A_TO_B,IN,0,0,1,0,0,1,v4.2_roi_hysteresis
+2026-09-16T17:36:13,cctv_bengkalis,BENGKALIS,425,CAR,0.907,A_TO_B,IN,1,0,1,0,1,1,v4.3_robust_crossing
+2026-09-16T17:39:36,cctv_bengkalis,BENGKALIS,3691,CAR,0.919,A_TO_B,IN,2,0,1,0,2,1,v4.3_robust_crossing
+2026-09-16T17:39:43,cctv_bengkalis,BENGKALIS,17,CAR,0.91,A_TO_B,IN,3,0,1,0,3,1,v4.3_robust_crossing

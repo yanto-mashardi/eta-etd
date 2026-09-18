@@ -1,0 +1,69 @@
+ais:
+  mode: api
+  replay:
+    source_dir: data/01_DATA_SOURCE/AIS/replay
+    output_file: data/01_DATA_SOURCE/AIS/realtime/ais_realtime.csv
+    chronological: true
+  api:
+    endpoint: ''
+    endpoint_env: AIS_API_URL
+    api_key_env: AIS_API_KEY
+    auth_header: Authorization
+    auth_scheme: Bearer
+    timeout_seconds: 15
+    poll_seconds: 10
+    output_file: data/01_DATA_SOURCE/AIS/realtime/ais_realtime.csv
+    history_file: data/01_DATA_SOURCE/AIS/realtime/ais_realtime_history.csv
+    raw_dir: data/01_DATA_SOURCE/AIS/realtime/raw
+    store_raw_payload: false
+    append_history: false
+  vessel_filter:
+    mmsi_whitelist:
+    - 525002060
+    - 525002121
+    - 525003298
+    - 525015047
+    - 525100240
+    use_destination: false
+  corridor_filter:
+    enabled: true
+    terminal_file: config/ports_berths.yaml
+    buffer_nm: 2.0
+    berth_radius_nm: 0.15
+  quality_control:
+    naive_timestamp_timezone: Asia/Jakarta
+    heading_not_available: 511
+    turn_not_available: -128
+    max_data_age_seconds: 300
+    allow_stale_inside_corridor: true
+  field_map:
+    timestamp: timestamp
+    mmsi: mmsi
+    latitude: lat
+    longitude: lon
+    sog: speed
+    cog: course
+    heading: heading
+    turn: turn
+    nav_status: status
+    accuracy: accuracy
+    imo: imo
+    callsign: callsign
+    shipname: shipname
+    ship_type: ship_type
+    draught: draught
+    destination_reported: destination
+    ais_update_at: update_at
+  contract:
+    required_columns:
+    - timestamp
+    - mmsi
+    - latitude
+    - longitude
+    - sog
+    - cog
+  realtime_storage:
+    mode: current_state_only
+    historical_sink: mysql
+    csv_history_enabled: false
+    raw_jsonl_enabled: false

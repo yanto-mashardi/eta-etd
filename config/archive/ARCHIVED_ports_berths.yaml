@@ -1,0 +1,17 @@
+ports:
+  Bengkalis:
+    berths:
+      - id: BENGKALIS_BERTH_1
+        lat: 1.449921
+        lon: 102.136747
+      - id: BENGKALIS_BERTH_2
+        lat: 1.449491
+        lon: 102.138242
+  Pakning:
+    berths:
+      - id: PAKNING_BERTH_1
+        lat: 1.380001
+        lon: 102.148561
+      - id: PAKNING_BERTH_2
+        lat: 1.378790
+        lon: 102.149836

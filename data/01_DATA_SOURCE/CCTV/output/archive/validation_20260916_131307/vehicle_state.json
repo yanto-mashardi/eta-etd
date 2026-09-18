@@ -1,0 +1,11 @@
+{
+  "car_queue_current": 24,
+  "motor_queue_current": 2,
+  "car_in_total": 24,
+  "car_out_total": 0,
+  "motor_in_total": 2,
+  "motor_out_total": 0,
+  "loaded_car_total": 0,
+  "loaded_motor_total": 0,
+  "updated_at": "2026-09-16T12:55:00"
+}

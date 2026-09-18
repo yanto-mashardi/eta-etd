@@ -1,0 +1,3 @@
+const BASE=process.env.NEXT_PUBLIC_API_BASE||"http://127.0.0.1:8000";
+export async function getJSON<T>(path:string,token?:string):Promise<T>{const r=await fetch(`${BASE}${path}`,{cache:"no-store",headers:token?{Authorization:`Bearer ${token}`}:{}});if(!r.ok)throw new Error(`${r.status} ${r.statusText}`);return r.json()}
+export async function postJSON<T>(path:string,body:any,token?:string):Promise<T>{const r=await fetch(`${BASE}${path}`,{method:"POST",headers:{"Content-Type":"application/json",...(token?{Authorization:`Bearer ${token}`}:{})},body:JSON.stringify(body)});if(!r.ok)throw new Error((await r.text())||`${r.status}`);return r.json()}

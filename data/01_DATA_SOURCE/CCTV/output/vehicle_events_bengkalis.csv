@@ -1,0 +1,1 @@
+timestamp,camera_id,port,track_id,class,confidence,direction,event,car_in_total,car_out_total,motor_in_total,motor_out_total,car_queue_current,motor_queue_current,algorithm

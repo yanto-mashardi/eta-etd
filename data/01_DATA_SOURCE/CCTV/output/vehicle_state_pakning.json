@@ -1,0 +1,19 @@
+{
+  "car_queue_current": 0,
+  "motor_queue_current": 0,
+  "car_in_total": 0,
+  "car_out_total": 0,
+  "motor_in_total": 0,
+  "motor_out_total": 0,
+  "loaded_car_total": 0,
+  "loaded_motor_total": 0,
+  "car_rate_5min": 0,
+  "motor_rate_5min": 0,
+  "pce_rate_5min": 0.0,
+  "rate_window_start": "2026-09-16T21:25",
+  "port": "PAKNING",
+  "camera_id": "cctv_pakning",
+  "source_status": "OBSERVED_OR_USER_RECORDING",
+  "updated_at": "2026-09-16T21:25:00",
+  "counting_algorithm": "v4.4_dual_port_5min_rate"
+}

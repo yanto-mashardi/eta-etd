@@ -1,0 +1,21 @@
+tracker_type: bytetrack
+
+# Deteksi kuat untuk association pertama
+track_high_thresh: 0.25
+
+# Deteksi lemah tetap dipertimbangkan
+track_low_thresh: 0.05
+
+# Confidence minimum untuk membuat ID baru
+new_track_thresh: 0.25
+
+# Pertahankan kendaraan yang hilang sementara
+# Video Anda 25 FPS.
+# 75 frame ≈ 3 detik
+track_buffer: 75
+
+# Association kendaraan lama dengan deteksi baru
+match_thresh: 0.80
+
+# Gabungkan confidence dengan spatial matching
+fuse_score: True

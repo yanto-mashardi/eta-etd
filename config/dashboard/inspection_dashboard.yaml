@@ -1,0 +1,41 @@
+version: 6
+requires_login: true
+timezone: Asia/Jakarta
+layout:
+  mode: tabbed_inspection_cockpit
+  internal_scroll: true
+sections:
+  realtime_system_health: true
+  mfar_parameters: true
+  historical_analysis: true
+  ml1_model_lab: true
+  ml2_model_lab: true
+  error_analysis: true
+  model_comparison: true
+  model_registry: true
+  fuzzy_rules_and_risks: true
+  system_logs: true
+  user_management_masteradmin: true
+mfar_parameters:
+  - eta_deviation
+  - headway_gap
+  - berth_occupancy
+  - queue_pressure
+  - turnaround_time
+  - vessel_speed
+  - distance_to_berth
+warning_levels: [Normal, Watch, Warning, Critical]
+historical:
+  ais_folder: data/01_DATA_SOURCE/AIS/historical
+  vehicle_folder: data/01_DATA_SOURCE/VEHICLE_HISTORICAL
+  split_method: chronological
+  test_ratio: 0.20
+models:
+  selectable: [random_forest, xgboost]
+  explicit_activation_only: true
+rules:
+  realtime_data_used_for_training: false
+  train_does_not_auto_activate: true
+  vehicle_observation_5min_enabled: false
+  do_not_invent_fuzzy_thresholds: true
+  show_not_evaluated_when_calibration_missing: true

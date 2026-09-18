@@ -1,0 +1,7 @@
+version: 1
+provider: environment
+username_env: BIMA2_INSPECTION_USERNAME
+password_hash_env: BIMA2_INSPECTION_PASSWORD_SHA256
+session_key: bima2_inspection_authenticated
+notes:
+  - Do not store plaintext passwords in Google Drive.

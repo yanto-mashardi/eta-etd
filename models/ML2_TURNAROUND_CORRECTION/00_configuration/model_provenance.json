@@ -1,0 +1,10 @@
+{
+  "model": "ML2_TURNAROUND_CORRECTION",
+  "source_project": "Ferry Prediction System/02_ML2_TURNAROUND_VEHICLE",
+  "model_files": [
+    "ml2_turnaround_selected.joblib"
+  ],
+  "status": "LEGACY_SIMULATED_NOT_OPERATIONAL",
+  "training_source": "dummy manifest / simulated vehicle profile",
+  "operational_claim_allowed": false
+}

@@ -1,0 +1,20 @@
+1.
+
+cd "H:\My Drive\LOCAL_RUN\JAES_SIMULASI_BIMA2"
+
+$env:AIS_API_URL="https://shipmonitoring.polbeng.web.id/data-ais"
+
+& "C:\LOCAL_RUN_venv\.venv\Scripts\python.exe" `
+".\scripts\data_source\ais\poll_ais_api_realtime.py"
+
+2. 
+cd "H:\My Drive\LOCAL_RUN\JAES_SIMULASI_BIMA2"
+
+& "C:\LOCAL_RUN_venv\.venv\Scripts\python.exe" `
+".\scripts\operation_state_v4\build_current_operation_state.py" `
+--loop --seconds 5
+
+3.
+cd "H:\My Drive\LOCAL_RUN\JAES_SIMULASI_BIMA2"
+
+& "C:\LOCAL_RUN_venv\.venv\Scripts\python.exe" -m streamlit run ".\scripts\dashboard\app.py"

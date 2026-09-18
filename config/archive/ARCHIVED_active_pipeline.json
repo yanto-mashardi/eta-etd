@@ -1,0 +1,26 @@
+{
+  "architecture_version": "LOCAL_RUN_STANDARD_V3",
+  "pipeline_id": "JAES_BIMA2",
+  "notebooks": [
+    {
+      "order": 1,
+      "stage": "01_ml1_eta",
+      "file": "01_ML1_ETA_CORRECTION_REV01_V3.ipynb"
+    },
+    {
+      "order": 2,
+      "stage": "02_ml2_turnaround",
+      "file": "02_ML2_TURNAROUND_CORRECTION_REV01_V3.ipynb"
+    },
+    {
+      "order": 3,
+      "stage": "03_eta_etd_integration",
+      "file": "03_ETA_ETD_INTEGRATION_REV01_V3.ipynb"
+    },
+    {
+      "order": 4,
+      "stage": "04_replay_dashboard",
+      "file": "04_REPLAY_DASHBOARD_REV01_V3.ipynb"
+    }
+  ]
+}

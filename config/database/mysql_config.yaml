@@ -1,0 +1,19 @@
+database:
+  driver: mysql
+  host_env: BIMA2_DB_HOST
+  port_env: BIMA2_DB_PORT
+  name_env: BIMA2_DB_NAME
+  password_env: BIMA2_DB_PASSWORD
+  default_host: 127.0.0.1
+  default_port: 3306
+  default_name: jaes_bima2
+  default_user: root
+history_recorder:
+  enabled: true
+  interval_seconds: 60
+  ais_enabled: true
+  cctv_enabled: true
+  prediction_enabled: true
+  actual_event_enabled: true
+  realtime_files_are_ephemeral: true
+  export_csv_on_demand_only: true
