@@ -131,7 +131,7 @@ ais:
     output_file: data/01_DATA_SOURCE/AIS/realtime/ais_realtime.csv
     history_file: data/01_DATA_SOURCE/AIS/realtime/ais_realtime_history.csv
     raw_dir: data/01_DATA_SOURCE/AIS/realtime/raw
-    store_raw_payload: false
+    store_raw_payload: true
     append_history: true
   replay:
     source_dir: data/01_DATA_SOURCE/AIS/replay
