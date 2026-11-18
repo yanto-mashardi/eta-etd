@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import os
 import subprocess
@@ -126,6 +127,15 @@ def upload(path: Path, remote: str) -> None:
     details = json.loads(check.stdout)
     if details.get("Size") != path.stat().st_size:
         raise RuntimeError(f"Upload size verification failed for {destination}")
+    digest = hashlib.md5()
+    with path.open("rb") as source:
+        for block in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(block)
+    remote_hash = subprocess.run(
+        ["rclone", "md5sum", destination], check=True, text=True, capture_output=True
+    ).stdout.strip().split()
+    if not remote_hash or remote_hash[0].lower() != digest.hexdigest():
+        raise RuntimeError(f"Upload MD5 verification failed for {destination}")
 
 
 def remote_verified(remote: str, day: date) -> bool:
