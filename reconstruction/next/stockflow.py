@@ -64,6 +64,7 @@ class Ledger:
     def snapshot(self,p):
         p=port(p)
         with self.connect() as db:
+            db.execute("BEGIN")
             op=db.execute("SELECT * FROM opening WHERE port=?",(p,)).fetchone()
             latest=db.execute("SELECT * FROM arrivals WHERE port=? ORDER BY ts DESC LIMIT 1",(p,)).fetchone()
             hb=db.execute("SELECT ts FROM heartbeat WHERE port=?",(p,)).fetchone()
@@ -95,6 +96,7 @@ class Ledger:
         if pending:issues.append("PENDING_OUTFLOW")
         if stale:issues.append("STALE_CCTV_TRANSPORT")
         if not latest:issues.append("WAITING_CCTV")
+        elif latest["day"]!=datetime.now(WIB).date().isoformat():issues.append("MISSING_CURRENT_DAY")
         result.update(status="RECONCILIATION_REQUIRED" if issues else "ESTIMATED" if estimated else "RECONSTRUCTED",
             issues=sorted(set(issues)),pending_departures=pending,inflow_car=inflow[0],inflow_motor=inflow[1],outflow_car=outflow[0],outflow_motor=outflow[1],
             queue_car=q[0] if not issues else None,queue_motor=q[1] if not issues else None,partial_stock_car=q[0],partial_stock_motor=q[1])
