@@ -3,6 +3,8 @@ import csv,json,os,threading,hmac
 from pathlib import Path
 from datetime import datetime,timezone
 from events import dt
+from trajectories import daily,WIB
+from datetime import date,timedelta
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from engine import load_release,estimate
@@ -46,6 +48,15 @@ def map_asset(name: str):
     p=Path(__file__).with_name("map-assets")/name
     if not p.is_file(): raise HTTPException(404)
     return FileResponse(p, media_type="text/javascript" if name.endswith(".js") else "text/css")
+
+@app.get("/api/inspection/trajectories")
+def trajectories(day: str = ""):
+    today=datetime.now(WIB).date()
+    try: selected=date.fromisoformat(day) if day else today
+    except ValueError: raise HTTPException(400,"Expected YYYY-MM-DD")
+    if not today-timedelta(days=7)<=selected<=today: raise HTTPException(400,"Local inspection range: last seven days plus today")
+    try:return daily(AIS,selected)
+    except OSError:raise HTTPException(503,"Local AIS archive unreadable")
 
 @app.get("/api/status")
 def status():
