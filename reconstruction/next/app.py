@@ -42,7 +42,7 @@ def page(): return FileResponse(Path(__file__).with_name("public.html"))
 def inspection(): return FileResponse(Path(__file__).with_name("dashboard.html"))
 @app.get("/map-assets/{name}")
 def map_asset(name: str):
-    if name not in ("leaflet.js","leaflet.css"): raise HTTPException(404)
+    if name not in ("leaflet.js","leaflet.css","maplibre-gl.js","maplibre-gl.css"): raise HTTPException(404)
     p=Path(__file__).with_name("map-assets")/name
     if not p.is_file(): raise HTTPException(404)
     return FileResponse(p, media_type="text/javascript" if name.endswith(".js") else "text/css")
