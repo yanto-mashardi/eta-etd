@@ -1,26 +1,21 @@
 {
-  "study_id": "EARLY_VS_CONVENTIONAL_ETD_2025",
-  "status": "NOT_DEPLOYABLE_UNTIL_PARITY_VALIDATED",
-  "models": {
-    "eta": {
-      "algorithm": "catboost",
-      "file": "ML_V2_eta_catboost.joblib",
-      "sha256": "0b4d7a3c7bcd03959c11651960c5db4bd7b814c434d02d2c42c0e1816619c6db",
-      "issue": "D0"
-    },
-    "vtt_early": {
-      "algorithm": "hist_gradient_boosting",
-      "file": "ML_V2_vtt_early_hist_gradient_boosting.joblib",
-      "sha256": "1d405fb73e66cf400f985cca97e139f88943ddf9465410a2e12503a23a0ae278",
-      "issue": "D0"
-    },
-    "vtt_conventional": {
-      "algorithm": "extratrees",
-      "file": "ML_V2_vtt_conventional_extratrees.joblib",
-      "sha256": "8b50a250c253786d7cf5f54604426f0a3f2c173c5879c89839b28c4791f37096",
-      "issue": "A"
-    }
-  },
+  "schema_version": 1,
+  "selection": "LOCAL_RUN_ONLY",
+  "roles": [
+    "eta",
+    "vtt_early",
+    "vtt_conventional"
+  ],
+  "bundle_formats": [
+    "trained_model",
+    "estimator"
+  ],
+  "activation": "operator-approved immutable release and atomic active.json pointer; restart isolated app to activate",
+  "required_manifest": [
+    "release_id",
+    "models",
+    "dependencies"
+  ],
   "baseline_order": [
     "hist_pair",
     "hist_vessel",
@@ -28,7 +23,10 @@
     "hist_global",
     "fallback_median_min"
   ],
-  "vehicle_features": false,
-  "training_rows": 941,
-  "validation_rows": 234
+  "issue_times": {
+    "eta": "D0",
+    "vtt_early": "D0",
+    "vtt_conventional": "A"
+  },
+  "status": "prototype_not_validated"
 }
