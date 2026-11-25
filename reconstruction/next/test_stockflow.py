@@ -38,5 +38,5 @@ class StockTests(unittest.TestCase):
     eid=self.l.departure("bengkalis","525002060",str(self.yesterday)+"T23:56:00+07:00")
     self.l.set_load(eid,8,12,"ESTIMATED")
     self.add(str(self.today),"00:00:00",0,0)
-    self.assertEqual(self.l.snapshot("bengkalis")["status"],"ESTIMATED")
+    self.assertEqual(self.l.snapshot("bengkalis")["status"],"RECONSTRUCTED")
 if __name__=="__main__":unittest.main()

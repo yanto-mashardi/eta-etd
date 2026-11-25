@@ -23,7 +23,9 @@ class Ledger:
             db.executescript("""CREATE TABLE IF NOT EXISTS arrivals(port TEXT, day TEXT, ts TEXT, car INTEGER, motor INTEGER, PRIMARY KEY(port,ts));
             CREATE TABLE IF NOT EXISTS departures(id TEXT PRIMARY KEY, port TEXT, ts TEXT, mmsi TEXT, car INTEGER, motor INTEGER, source TEXT);
             CREATE TABLE IF NOT EXISTS opening(port TEXT PRIMARY KEY, ts TEXT, car INTEGER, motor INTEGER, counter_car INTEGER, counter_motor INTEGER);
-            CREATE TABLE IF NOT EXISTS heartbeat(port TEXT PRIMARY KEY, ts TEXT);""")
+            CREATE TABLE IF NOT EXISTS heartbeat(port TEXT PRIMARY KEY, ts TEXT);
+            CREATE TABLE IF NOT EXISTS capacity_policy(mmsi TEXT PRIMARY KEY, capacity_units INTEGER, motor_units INTEGER, fill_fraction REAL);
+            CREATE TABLE IF NOT EXISTS departure_policy(id TEXT PRIMARY KEY, capacity_units INTEGER, motor_units INTEGER, fill_fraction REAL);""")
     def connect(self):
         db=sqlite3.connect(self.path,timeout=10);db.row_factory=sqlite3.Row;return db
     def arrival(self,p,payload,now=None):
@@ -44,9 +46,19 @@ class Ledger:
                 if (prev and (car<prev[0] or motor<prev[1])) or (nxt and (car>nxt[0] or motor>nxt[1])): raise ValueError("Counter decreased within day")
                 db.execute("INSERT INTO arrivals VALUES(?,?,?,?,?)",(p,day,ts,car,motor))
             db.execute("INSERT INTO heartbeat VALUES(?,?) ON CONFLICT(port) DO UPDATE SET ts=max(ts,excluded.ts)",(p,stamp(now.isoformat())))
+    def configure_capacity(self,mmsi,capacity_pce,motor_pce,fill_fraction):
+        from decimal import Decimal
+        c=Decimal(str(capacity_pce))*100; m=Decimal(str(motor_pce))*100
+        if c!=int(c) or m!=int(m) or c<=0 or not 0<m<=100 or not 0<fill_fraction<=1: raise ValueError("Invalid capacity policy")
+        with self.connect() as db:
+            db.execute("INSERT INTO capacity_policy VALUES(?,?,?,?) ON CONFLICT(mmsi) DO UPDATE SET capacity_units=excluded.capacity_units,motor_units=excluded.motor_units,fill_fraction=excluded.fill_fraction",(str(mmsi),int(c),int(m),fill_fraction))
     def departure(self,p,mmsi,ts):
         p=port(p);ts=stamp(ts);eid=str(mmsi)+"|"+ts+"|"+p
-        with self.connect() as db: db.execute("INSERT OR IGNORE INTO departures(id,port,ts,mmsi) VALUES(?,?,?,?)",(eid,p,ts,str(mmsi)))
+        with self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            cur=db.execute("INSERT OR IGNORE INTO departures(id,port,ts,mmsi) VALUES(?,?,?,?)",(eid,p,ts,str(mmsi)))
+            if cur.rowcount:
+                db.execute("INSERT INTO departure_policy SELECT ?,capacity_units,motor_units,fill_fraction FROM capacity_policy WHERE mmsi=?",(eid,str(mmsi)))
         return eid
     def set_opening(self,p,ts,car,motor,counter_car,counter_motor):
         p=port(p);ts=stamp(ts)
@@ -72,7 +84,8 @@ class Ledger:
             result={"status":"WAITING_OPENING_STOCK","queue_car":None,"queue_motor":None,"latest_counter":dict(latest) if latest else None,"last_received":hb[0] if hb else None,"recent_departures":deps}
             if not op:return result
             arr=list(db.execute("SELECT * FROM arrivals WHERE port=? AND ts>? ORDER BY ts",(p,op["ts"])))
-            departures=list(db.execute("SELECT * FROM departures WHERE port=? AND ts>? ORDER BY ts",(p,op["ts"])))
+            departures=list(db.execute("SELECT * FROM departures WHERE port=? AND ts>? ORDER BY ts,id",(p,op["ts"])))
+            policies={r["id"]:dict(r) for r in db.execute("SELECT * FROM departure_policy")}
         day=datetime.fromisoformat(op["ts"]).astimezone(WIB).date().isoformat()
         prev=(op["counter_car"],op["counter_motor"]);q=[op["car"],op["motor"]];inflow=[0,0];outflow=[0,0];issues=[]
         pending=0;estimated=False
@@ -87,7 +100,15 @@ class Ledger:
                 if min(d)<0: issues.append("COUNTER_CONFLICT");continue
                 prev=(r["car"],r["motor"])
                 for i in range(2):q[i]+=d[i];inflow[i]+=d[i]
-            elif r["source"] is None: pending+=1
+            elif r["source"] is None:
+                policy=policies.get(r["id"])
+                if not policy or pending or min(q)<0: pending+=1;continue
+                from capacity import allocate
+                cars,motors=allocate(q[0],q[1],policy)
+                for i,n in enumerate((cars,motors)):q[i]-=n;outflow[i]+=n
+                for d in deps:
+                    if d["id"]==r["id"]:d.update(car=cars,motor=motors,source="CAPACITY_POLICY")
+                estimated=True
             else:
                 estimated|=r["source"]=="ESTIMATED"
                 for i,k in enumerate(("car","motor")):q[i]-=r[k];outflow[i]+=r[k]
@@ -97,7 +118,7 @@ class Ledger:
         if stale:issues.append("STALE_CCTV_TRANSPORT")
         if not latest:issues.append("WAITING_CCTV")
         elif latest["day"]!=datetime.now(WIB).date().isoformat():issues.append("MISSING_CURRENT_DAY")
-        result.update(status="RECONCILIATION_REQUIRED" if issues else "ESTIMATED" if estimated else "RECONSTRUCTED",
-            issues=sorted(set(issues)),pending_departures=pending,inflow_car=inflow[0],inflow_motor=inflow[1],outflow_car=outflow[0],outflow_motor=outflow[1],
+        result.update(status="RECONCILIATION_REQUIRED" if issues else "RECONSTRUCTED",
+            method="CAPACITY_POLICY_OR_DECLARED_LOAD" if estimated else "DECLARED_LOAD",issues=sorted(set(issues)),pending_departures=pending,inflow_car=inflow[0],inflow_motor=inflow[1],outflow_car=outflow[0],outflow_motor=outflow[1],
             queue_car=q[0] if not issues else None,queue_motor=q[1] if not issues else None,partial_stock_car=q[0],partial_stock_motor=q[1])
         return result
