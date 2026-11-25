@@ -33,6 +33,11 @@ class EventTests(unittest.TestCase):
         self.assertEqual(f["historical_completed_count"],35)
         self.assertEqual(f["hist_pair_n"],30)
         self.assertEqual(f["hist_pair_sailing_median_min"],49.5)
+    def test_same_port_gap_12(self):
+        tr=Tracker()
+        for n,p in [(0,None),(2,"BENGKALIS"),(13,"BENGKALIS"),(15,"BENGKALIS")]:tr.process(fix(n,p))
+        self.assertTrue(tr.state["vessels"]["525002060"]["stop"]["confirmed"])
+        self.assertEqual(tr.process(fix(17))[0]["phase"],"D0")
     def test_duplicate_and_ambiguous(self):
         tr=Tracker();tr.process(fix(0));p=fix(2,"BENGKALIS");p["ambiguous"]=True
         tr.process(p);tr.process(p)

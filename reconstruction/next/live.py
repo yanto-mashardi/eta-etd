@@ -2,7 +2,7 @@
 import csv,json,threading
 from datetime import datetime,timezone
 from pathlib import Path
-from events import Tracker,read_seed,classify,atomic_json
+from events import Tracker,read_seed,classify,atomic_json,dt
 from engine import estimate
 
 class Live:
@@ -21,6 +21,8 @@ class Live:
             try: p=classify(row,now,self.field)
             except (ValueError,KeyError,TypeError): self.rejected+=1;continue
             with self.lock:
+                previous=self.tracker.state["vessels"].get(p["mmsi"],{}).get("last")
+                if previous and dt(p["ts"])<=dt(previous["ts"]): continue
                 for event in self.tracker.process(p):
                     result={"status":"WAITING_MODEL_OR_HISTORY","issue_utc":event["issue_utc"],"published_at":event["published_at"],"release":self.release}
                     if self.models is not None and self.tracker.seed_count:

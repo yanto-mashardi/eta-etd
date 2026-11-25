@@ -17,7 +17,7 @@ def minutes(a,b): return (dt(b)-dt(a)).total_seconds()/60
 def nm(lat,lon,x,y):
     a,b,c,d=map(math.radians,(lat,lon,x,y))
     z=math.sin((c-a)/2)**2+math.cos(a)*math.cos(c)*math.sin((d-b)/2)**2
-    return 6371.0088/1.852*2*math.asin(math.sqrt(min(1,max(0,z))))
+    return 3440.065*2*math.asin(math.sqrt(min(1,max(0,z))))
 def classify(row,now,field="ais_update_at"):
     if str(row.get("inference_allowed","")).lower() not in ("true","1"): raise ValueError("AIS inference not permitted")
     m=str(row["mmsi"]).strip()
@@ -38,7 +38,7 @@ def classify(row,now,field="ais_update_at"):
 def cycle_key(c): return (str(c["mmsi"]),dt(c["D0_utc"]).isoformat(),dt(c["A_utc"]).isoformat(),dt(c["D1_utc"]).isoformat())
 def clean_cycle(c):
     key=cycle_key(c); d0,a,d1=key[1:]
-    s,v=minutes(d0,a),minutes(a,d1)
+    s,v=round(minutes(d0,a),5),round(minutes(a,d1),5)
     if not (15<=s<=120 and 8<=v<=180): raise ValueError("Cycle duration outside research QC")
     if c["origin_port"] not in PORTS or c["destination_port"] not in PORTS or c["origin_port"]==c["destination_port"]: raise ValueError("Invalid ports")
     return {"mmsi":key[0],"origin_port":c["origin_port"],"destination_port":c["destination_port"],"D0_utc":d0,"A_utc":a,"D1_utc":d1,"sailing":s,"vtt":v,"known_at":c.get("known_at",d1),"cycle_id":c.get("cycle_id","|".join(key))}
@@ -89,7 +89,7 @@ class Tracker:
         if prev and dt(p["ts"])<=dt(prev["ts"]): return []
         events=[]
         # Never infer exit from missing observations or from a direct jump to another berth.
-        if prev and minutes(prev["ts"],p["ts"])>10:
+        if prev and minutes(prev["ts"],p["ts"])>(12 if prev["candidate"] and p["candidate"] and prev["port"]==p["port"] else 10):
             v.update(stop=None,voyage=None,status="AIS_GAP",predictions={})
             prev=None
         s=v["stop"]
