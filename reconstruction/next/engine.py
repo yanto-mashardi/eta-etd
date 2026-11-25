@@ -18,6 +18,12 @@ def load_release(root):
     folder=root/"releases"/rid
     manifest=json.loads((folder/"manifest.json").read_text())
     if manifest["release_id"]!=rid: raise ValueError("Release ID mismatch")
+    from importlib.metadata import version
+    deps=manifest["dependencies"]
+    for name in ("joblib","numpy","pandas","scikit-learn"):
+        if name not in deps: raise ValueError("Missing dependency "+name)
+    for name,wanted in deps.items():
+        if version(name)!=wanted: raise ValueError("Dependency mismatch: "+name)
     models={}
     for role in ROLES:
         entry=manifest["models"][role]
