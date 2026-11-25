@@ -1,11 +1,12 @@
 """Isolated read-only live AIS dashboard and trusted feature-frame inference prototype."""
-import csv,json,os,threading
+import csv,json,os,threading,hmac
 from pathlib import Path
 from datetime import datetime,timezone
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from engine import load_release,estimate
 from live import Live
+from stockflow import Ledger
 ROOT=Path(os.getenv("BIMA2_NEXT_ROOT","/opt/BIMA2_NEXT"))
 AIS=Path(os.getenv("BIMA2_AIS_CSV","/opt/JAES_SIMULASI_BIMA2/data/01_DATA_SOURCE/AIS/realtime/ais_realtime.csv"))
 app=FastAPI(title="BIMA2 Next",docs_url=None,redoc_url=None)
@@ -46,9 +47,22 @@ def status():
             p=ROOT/"data"/"vehicles"/(port+".json")
             vehicles[port]={"state":json.loads(p.read_text()),"file_age_seconds":max(0,datetime.now(timezone.utc).timestamp()-p.stat().st_mtime)}
         except (OSError,ValueError): vehicles[port]=None
+    if live:
+        vehicles={p:live.ledger.snapshot(p) for p in ("bengkalis","pakning")}
     return {"ais_status":ais_status,"ais_file_age_seconds":age,"vessels":rows,"models":{"release":release,"status":model_status,"algorithms":{r:b.get("algorithm",b.get("estimator_name")) for r,b in (models or {}).items()}},"vehicles":vehicles,"prediction_status":"STAGING_UNVALIDATED","event_engine":live.snapshot() if live else None}
 
 # Offline/staging prediction helper is intentionally not exposed as a public write API.
 def predict_feature_frame(issue,features,phase):
     if models is None: raise RuntimeError("No active model")
     with lock: return estimate(models,issue,features,phase)
+
+@app.post("/api/vehicles/{port}")
+def receive_vehicle(port:str,body:dict,authorization:str=Header(default="")):
+    token=os.getenv("BIMA2_VEHICLE_TOKEN","")
+    if not token or not hmac.compare_digest(authorization,"Bearer "+token):
+        raise HTTPException(401,"Unauthorized")
+    if body.get("mode")!="OBSERVED":raise HTTPException(422,"Only OBSERVED input accepted")
+    if not live:raise HTTPException(503,"Not ready")
+    try:live.ledger.arrival(port,body["state"])
+    except (ValueError,KeyError,TypeError) as e:raise HTTPException(422,str(e))
+    return {"accepted":True}

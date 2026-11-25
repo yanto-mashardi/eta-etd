@@ -4,10 +4,11 @@ from datetime import datetime,timezone
 from pathlib import Path
 from events import Tracker,read_seed,classify,atomic_json,dt
 from engine import estimate
+from stockflow import Ledger
 
 class Live:
     def __init__(self,root,ais,models,release,timestamp_field="ais_update_at"):
-        self.root=Path(root);self.ais=Path(ais);self.models=models;self.release=release
+        self.root=Path(root);self.ledger=Ledger(self.root/'data'/'stockflow.sqlite');self.ais=Path(ais);self.models=models;self.release=release
         self.field=timestamp_field;self.lock=threading.Lock();self.stop=threading.Event()
         self.path=self.root/"data"/"events_state.json"
         self.seed_path=self.root/"data"/"historical_cycles.csv"
@@ -24,6 +25,7 @@ class Live:
                 previous=self.tracker.state["vessels"].get(p["mmsi"],{}).get("last")
                 if previous and dt(p["ts"])<=dt(previous["ts"]): continue
                 for event in self.tracker.process(p):
+                    if event["phase"]=="D0": self.ledger.departure(event["features"]["origin_port"],p["mmsi"],event["issue_utc"])
                     result={"status":"WAITING_MODEL_OR_HISTORY","issue_utc":event["issue_utc"],"published_at":event["published_at"],"release":self.release}
                     if self.models is not None and self.tracker.seed_count:
                         try:
