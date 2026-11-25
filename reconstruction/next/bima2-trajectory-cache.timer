@@ -1,0 +1,9 @@
+[Unit]
+Description=Refresh BIMA2 trajectory archive mirror after daily AIS upload
+[Timer]
+OnCalendar=*-*-* 00:25:00 Asia/Jakarta
+OnCalendar=*-*-* 01:25:00 Asia/Jakarta
+Persistent=true
+Unit=bima2-trajectory-cache.service
+[Install]
+WantedBy=timers.target

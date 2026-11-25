@@ -1,5 +1,6 @@
 """Read-only daily trajectory inspection, independent of live ML and stock ledger."""
-import csv,json,math,threading,time
+import csv,json,math,threading,time,logging,os
+from pathlib import Path
 from datetime import datetime,date,timedelta,timezone
 from zoneinfo import ZoneInfo
 from collections import defaultdict
@@ -17,7 +18,7 @@ def messages(payload):
     return []
 def records(ais,day):
     # Fix date, not reception date, defines the requested WIB day.
-    archive=ais.parent.parent/"archive_daily"
+    archive=Path(os.getenv("BIMA2_TRAJECTORY_CACHE","/opt/BIMA2_NEXT/data/trajectory_cache"))
     raw=ais.parent/"raw"
     paths=[raw/("ais_api_raw_"+(day+timedelta(days=i)).strftime("%Y%m%d")+".jsonl") for i in (-1,0,1)]
     paths=[p for p in paths if p.is_file()]
@@ -25,10 +26,16 @@ def records(ais,day):
     archives=[archive/("AIS_RAW_"+(day+timedelta(days=i)).isoformat()+".csv") for i in (0,1)]
     archives=[p for p in archives if p.is_file()]
     for p in archives:
-        with p.open(encoding="utf-8-sig",newline="") as f:
+        try: f=p.open(encoding="utf-8-sig",newline="")
+        except OSError:
+            logging.warning("Trajectory cache unreadable: %s",p.name);continue
+        with f:
             for r in csv.DictReader(f):yield r,r.get("received_at_original")
     for p in paths:
-        with p.open(encoding="utf-8") as f:
+        try: f=p.open(encoding="utf-8")
+        except OSError:
+            logging.warning("Trajectory source unreadable: %s",p.name);continue
+        with f:
             for line in f:
                 try:e=json.loads(line)
                 except ValueError:continue # concurrent partial last line

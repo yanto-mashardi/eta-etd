@@ -1,0 +1,8 @@
+[Unit]
+Description=BIMA2 trajectory archive read-only mirror
+After=network-online.target
+[Service]
+Type=oneshot
+User=root
+ExecStart=/bin/bash /opt/BIMA2_NEXT/app/sync_trajectory_cache.sh
+Nice=10
