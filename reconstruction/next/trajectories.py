@@ -17,7 +17,7 @@ def messages(payload):
         return [payload]
     return []
 def records(ais,day):
-    # Fix date, not reception date, defines the requested WIB day.
+    # Observation date, not reception or provider update date, defines WIB day.
     archive=Path(os.getenv("BIMA2_TRAJECTORY_CACHE","/opt/BIMA2_NEXT/data/trajectory_cache"))
     raw=ais.parent/"raw"
     paths=[raw/("ais_api_raw_"+(day+timedelta(days=i)).strftime("%Y%m%d")+".jsonl") for i in (-1,0,1)]
@@ -48,22 +48,26 @@ def normalize(r,received,day):
         if m not in MMSI:return None
         raw=json.loads(r.get("raw_json") or "{}")
         if not isinstance(raw,dict):return None
-        value=r.get("update_at") or r.get("ais_update_at") or raw.get("update_at")
+        value=r.get("timestamp") or raw.get("timestamp")
+        # Observation timestamp is distinct from the provider update/age field.
+        # Do not use update_at as observation identity.
         if not value:return None
         stamp=datetime.fromisoformat(str(value).replace("Z","+00:00"))
-        # Provider's naive update_at is WIB, as shown by offset-aware timestamp and live receiver.
-        if stamp.tzinfo is None:stamp=stamp.replace(tzinfo=WIB)
+        if stamp.tzinfo is None:return None
         stamp=stamp.astimezone(timezone.utc)
         rx=dt(received)
         if stamp.astimezone(WIB).date()!=day or stamp>rx:return None
         lat=float(r.get("lat",r.get("latitude")));lon=float(r.get("lon",r.get("longitude")));sog=float(r.get("sog") if r.get("sog") not in ("",None) else r.get("speed") if r.get("speed") not in ("",None) else raw.get("speed"))
         if not (1.2<=lat<=1.6 and 101.95<=lon<=102.4 and 0<=sog<=40):return None
+        # Restrict visualization to crossing corridor, excluding unrelated vessel locations.
+        if not (1.35<=lat<=1.48 and 102.10<=lon<=102.19):return None
         ds=sorted((nm(lat,lon,*xy),p,b) for p,bs in PORTS.items() for b,xy in bs.items())
         dist,p,b=ds[0]
         return dict(mmsi=m,shipname=str(r.get("shipname") or m),ts=stamp.isoformat(),received=rx.isoformat(),lat=lat,lon=lon,sog=sog,cog=None,distance=dist,port=p,berth=b,candidate=sog<=.8 and dist<=.15,ambiguous=ds[1][0]<=.15 or (ds[1][0]-dist)*1852<50)
     except (ValueError,TypeError,KeyError,OverflowError):return None
 def split_trips(points):
-    # Use research stop confirmation to identify D0/A; never connect over gaps.
+    # Diagnostic reconstruction on observation timestamps; not independent fresh AIS fixes.
+    # Never connect over gaps.
     tracker=Tracker()
     out=[];leg=[];origin=None;dest=None
     def finish(status):
@@ -111,6 +115,6 @@ def daily(ais,day):
         for m,group in sorted(groups.items()):
             pts=sorted((p for ts,p in group.items() if (m,ts) not in conflicts),key=lambda x:dt(x["ts"]))
             count+=len(pts);trips.extend(split_trips(pts))
-        result={"date":day.isoformat(),"timezone":"Asia/Jakarta","point_count":count,"conflicting_fixes_excluded":len(conflicts),"trips":trips,"status":"AVAILABLE" if count else "NO_LOCAL_AIS","generated_at":datetime.now(timezone.utc).isoformat()}
+        result={"date":day.isoformat(),"timezone":"Asia/Jakarta","timestamp_basis":"provider_timestamp","point_count":count,"conflicting_fixes_excluded":len(conflicts),"trips":trips,"status":"AVAILABLE" if count else "NO_LOCAL_AIS","generated_at":datetime.now(timezone.utc).isoformat()}
         _cache.clear();_cache[key]=(now,result)
         return result
