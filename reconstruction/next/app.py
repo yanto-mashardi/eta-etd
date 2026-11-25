@@ -33,7 +33,12 @@ def shutdown():
     if worker: worker.join(timeout=10)
 
 @app.get("/")
-def page(): return FileResponse(Path(__file__).with_name("dashboard.html"))
+@app.get("/bengkalis")
+@app.get("/pakning")
+def page(): return FileResponse(Path(__file__).with_name("public.html"))
+
+@app.get("/inspection")
+def inspection(): return FileResponse(Path(__file__).with_name("dashboard.html"))
 @app.get("/api/status")
 def status():
     try:
