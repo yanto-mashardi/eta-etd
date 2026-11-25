@@ -2,6 +2,7 @@
 import csv,json,os,threading,hmac
 from pathlib import Path
 from datetime import datetime,timezone
+from events import dt
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from engine import load_release,estimate
@@ -39,6 +40,13 @@ def page(): return FileResponse(Path(__file__).with_name("public.html"))
 
 @app.get("/inspection")
 def inspection(): return FileResponse(Path(__file__).with_name("dashboard.html"))
+@app.get("/map-assets/{name}")
+def map_asset(name: str):
+    if name not in ("leaflet.js","leaflet.css"): raise HTTPException(404)
+    p=Path(__file__).with_name("map-assets")/name
+    if not p.is_file(): raise HTTPException(404)
+    return FileResponse(p, media_type="text/javascript" if name.endswith(".js") else "text/css")
+
 @app.get("/api/status")
 def status():
     try:
@@ -46,6 +54,14 @@ def status():
         age=max(0,datetime.now(timezone.utc).timestamp()-AIS.stat().st_mtime)
         ais_status="STALE" if age>300 else "AVAILABLE"
     except (OSError,csv.Error): rows=[];age=None;ais_status="UNAVAILABLE"
+    now=datetime.now(timezone.utc)
+    for row in rows:
+        try:
+            seconds=(now-dt(row["ais_update_at"])).total_seconds()
+            row["live_ais_age_seconds"]=round(seconds,1)
+            row["live_ais_quality"]="FUTURE" if seconds<0 else "STALE" if seconds>300 else "QC" if str(row.get("inference_allowed","")).lower() not in ("true","1") else "FRESH"
+        except (ValueError,KeyError,TypeError):
+            row["live_ais_age_seconds"]=None;row["live_ais_quality"]="INVALID_TIMESTAMP"
     vehicles={}
     for port in ("bengkalis","pakning"):
         try:
