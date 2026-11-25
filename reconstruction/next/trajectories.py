@@ -46,10 +46,17 @@ def normalize(r,received,day):
     try:
         m=str(r.get("mmsi",r.get("immsi",""))).strip()
         if m not in MMSI:return None
-        stamp=dt(r.get("update_at") or r.get("ais_update_at") or r.get("timestamp"))
+        raw=json.loads(r.get("raw_json") or "{}")
+        if not isinstance(raw,dict):return None
+        value=r.get("update_at") or r.get("ais_update_at") or raw.get("update_at")
+        if not value:return None
+        stamp=datetime.fromisoformat(str(value).replace("Z","+00:00"))
+        # Provider's naive update_at is WIB, as shown by offset-aware timestamp and live receiver.
+        if stamp.tzinfo is None:stamp=stamp.replace(tzinfo=WIB)
+        stamp=stamp.astimezone(timezone.utc)
         rx=dt(received)
         if stamp.astimezone(WIB).date()!=day or stamp>rx:return None
-        lat=float(r.get("lat",r.get("latitude")));lon=float(r.get("lon",r.get("longitude")));sog=float(r["sog"])
+        lat=float(r.get("lat",r.get("latitude")));lon=float(r.get("lon",r.get("longitude")));sog=float(r.get("sog") if r.get("sog") not in ("",None) else r.get("speed") if r.get("speed") not in ("",None) else raw.get("speed"))
         if not (1.2<=lat<=1.6 and 101.95<=lon<=102.4 and 0<=sog<=40):return None
         ds=sorted((nm(lat,lon,*xy),p,b) for p,bs in PORTS.items() for b,xy in bs.items())
         dist,p,b=ds[0]
