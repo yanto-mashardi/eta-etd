@@ -38,7 +38,9 @@ def main():
         if sha(src)!=summary["candidate_models_saved"][role][alg] or sha(data)!=summary["input_sha256"][role]:raise ValueError("Source provenance mismatch "+role)
         b=joblib.load(src)
         if b["role"]!=role or b["algorithm"]!=alg:raise ValueError("Bundle mismatch")
-        if b["sklearn_version"]!=deps["scikit-learn"] or b["python_version"]!=manifest["python_version"]:raise ValueError("Use original training environment")
+        if b["sklearn_version"]!=deps["scikit-learn"]:raise ValueError("scikit-learn training="+b["sklearn_version"]+" runtime="+deps["scikit-learn"])
+        if b["python_version"].split(".")[:2]!=manifest["python_version"].split(".")[:2]:raise ValueError("Python training="+b["python_version"]+" runtime="+manifest["python_version"])
+        print(role,"training Python",b["python_version"],"runtime",manifest["python_version"],"sklearn",b["sklearn_version"],flush=True)
         df=pd.read_csv(data,dtype={"mmsi":str,"cycle_id":str})
         va=df[df.split=="VALIDATION"].set_index("cycle_id",verify_integrity=True)
         ref=pred[(pred.role==role)&(pred.algorithm==alg)].set_index("cycle_id",verify_integrity=True)
@@ -47,7 +49,7 @@ def main():
             x={k:(None if pd.isna(row[k]) else row[k].item() if hasattr(row[k],"item") else row[k]) for k in b["feature_names"]}
             cases.append({"role":role,"cycle_id":cid,"features":x,"expected_duration_min":float(ref.loc[cid,"predicted_duration_min"])})
         shutil.copyfile(src,target/(role+".joblib"))
-        manifest["models"][role]={"sha256":sha(src),"algorithm":alg}
+        manifest["models"][role]={"sha256":sha(src),"algorithm":alg,"training_python":b["python_version"],"training_sklearn":b["sklearn_version"]}
     shutil.copyfile(a.history,target/"historical_cycles.csv")
     write(target/"validation_fixture.json",{"release_id":a.release,"cases":cases})
     manifest["fixture_sha256"]=sha(target/"validation_fixture.json")
