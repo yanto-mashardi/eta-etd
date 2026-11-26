@@ -40,14 +40,14 @@ def berth_of(v):
     votes=s.get("votes") or {}
     return max(votes,key=votes.get) if s.get("confirmed") and votes and s.get("n") and max(votes.values())/s["n"]>=.8 else None
 
-def record_trip(state,m,v,cycle=None,status=None):
+def record_trip(state,m,v,cycle=None,status=None,observed_exit=None):
     q=v.get("voyage")
     if not q:return
     row=evaluate(m,q,v.get("predictions",{}),cycle)
     key=row["trip_id"]
     journal=state.setdefault("trip_monitor",{})
     previous=journal.get(key,{})
-    if previous.get("status")=="COMPLETED_QC_PASS":return
+    if previous.get("status") in ("COMPLETED_QC_PASS","COMPLETED_QC_FAIL"):return
     last=v.get("last") or {}
     s=v.get("stop") or {}
     if q.get("A_utc") and s.get("port")==q["destination_port"]:
@@ -57,6 +57,10 @@ def record_trip(state,m,v,cycle=None,status=None):
     row["shipname"]=v.get("shipname") or previous.get("shipname") or m
     row["sog"]=last.get("sog")
     row["last_fix_utc"]=last.get("ts")
+    if observed_exit:row["etd_real"]=observed_exit
+    row["event_quality"]="QC_PASS" if cycle else "QC_FAIL" if observed_exit else "PENDING"
+    row["event_qc_flags"]="|".join(q.get("qc_flags",[]))
+    row["publication_protocol"]=q.get("publication_protocol","LEGACY_CONFIRMATION")
     row["status"]=status or ("COMPLETED_QC_PASS" if cycle else v.get("status","ONGOING"))
     # Never erase already published values or confirmed berth evidence with a missing field.
     journal[key]={**previous,**{k:x for k,x in row.items() if x is not None}}
@@ -69,7 +73,7 @@ def with_vtt(row):
     out=dict(row)
     out['eta_error_min']=timing_comparison(row.get('ATA'),row.get('eta_corrected'),row.get('early_published_at'))
     out['vtt_conventional_min']=delta(row.get('ATA'),row.get('etd_arrival'))
-    out['vtt_real_min']=delta(row.get('ATA'),row.get('etd_real')) if row.get('status')=='COMPLETED_QC_PASS' else None
+    out['vtt_real_min']=delta(row.get('ATA'),row.get('etd_real')) if row.get('status') in ('COMPLETED_QC_PASS','COMPLETED_QC_FAIL') else None
     for phase in ('early','conventional'):
         base=out.get('vtt_'+phase+'_base_min'); corrected=out.get('vtt_'+phase+'_min')
         out['vtt_'+phase+'_correction_min']=round(corrected-base,3) if base is not None and corrected is not None else None
@@ -103,7 +107,7 @@ def operational_boards(rows,active,states):
     """
     previous={}
     for r in rows:
-        if r.get("etd_real") and r.get("status")=="COMPLETED_QC_PASS":
+        if r.get("etd_real") and r.get("status") in ("COMPLETED_QC_PASS","COMPLETED_QC_FAIL"):
             previous[(str(r["mmsi"]),r["destination_port"],dt(r["etd_real"]))]=r
     arrivals=[];departures=[]
     def item(r,port,other,value,kind,color,status,berth=None,quality="FRESH"):

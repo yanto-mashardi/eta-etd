@@ -10,6 +10,7 @@ from trajectories import expire_cache
 from copy import deepcopy
 from evaluation import record_trip,daily_rows,active_trip_rows,WIB
 from operational import publish
+from live_events import OperationalTracker
 from events import Tracker,read_seed,classify,atomic_json,dt
 from engine import estimate
 from stockflow import Ledger
@@ -22,7 +23,7 @@ class Live:
         self.seed_path=self.root/"data"/"historical_cycles.csv"
         seed=read_seed(self.seed_path) if self.seed_path.exists() else []
         state=json.loads(self.path.read_text()) if self.path.exists() else None
-        self.tracker=Tracker(state,seed,require_moving_exit=True);self.error=None;self.rejected=0;self.rejection_reasons=Counter();self.duplicates=0
+        self.tracker=OperationalTracker(state,seed);self.error=None;self.rejected=0;self.rejection_reasons=Counter();self.duplicates=0
         # Import only already stored predictions from an ongoing voyage, never rerun them.
         for m,v in self.tracker.state["vessels"].items():
             record_trip(self.tracker.state,m,v)
@@ -45,8 +46,13 @@ class Live:
                 completed=self.tracker.state["cycles"][ncycles:]
                 if old.get("voyage") and (not current.get("voyage") or old["voyage"]["D0_utc"]!=current["voyage"]["D0_utc"]):
                     old["shipname"]=current["shipname"]
-                    if completed: record_trip(self.tracker.state,p["mmsi"],old,completed[-1])
-                    else: record_trip(self.tracker.state,p["mmsi"],old,status="INCOMPLETE_"+current["status"])
+                    exit_event=current.get('operational_exit') or {}
+                    old_id=p['mmsi']+'|'+dt(old['voyage']['D0_utc']).isoformat()
+                    if completed: record_trip(self.tracker.state,p['mmsi'],old,completed[-1])
+                    elif exit_event.get('trip_id')==old_id:
+                        old['voyage']['qc_flags']=exit_event['qc_flags']
+                        record_trip(self.tracker.state,p['mmsi'],old,status='COMPLETED_QC_FAIL',observed_exit=exit_event['D1_utc'])
+                    else: record_trip(self.tracker.state,p['mmsi'],old,status='INCOMPLETE_'+current['status'])
                 for event in events:
                     if event["phase"]=="D0": self.ledger.departure(event["features"]["origin_port"],p["mmsi"],event["issue_utc"])
                     result={"status":"WAITING_MODEL_OR_HISTORY","issue_utc":event["issue_utc"],"published_at":event["published_at"],"release":self.release}
