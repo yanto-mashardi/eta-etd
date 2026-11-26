@@ -39,11 +39,18 @@ class Live:
             except (ValueError,KeyError,TypeError) as e: self.rejected+=1;self.rejection_reasons[str(e)[:120]]+=1;continue
             with self.lock:
                 previous=self.tracker.state["vessels"].get(p["mmsi"],{}).get("last")
+                raw_fix=p
                 p=resolve(p,row,previous,now)
-                if p is None:self.duplicates+=1;continue
+                recovery_only=p is None
+                if recovery_only:
+                    self.duplicates+=1
+                    v=self.tracker.state["vessels"].get(raw_fix["mmsi"],{})
+                    stop=v.get("stop")
+                    if not (previous and previous.get("candidate") and raw_fix["candidate"] and stop and not v.get("voyage") and not stop.get("arrival_recovery_attempted") and raw_fix["port"]==stop["port"]==previous["port"] and dt(raw_fix["ts"])==dt(previous.get("source_fix_utc",previous["ts"]))):continue
+                    p=dict(previous,received=now.isoformat())
                 old=deepcopy(self.tracker.state["vessels"].get(p["mmsi"],{}))
                 ncycles=len(self.tracker.state["cycles"])
-                events=self.tracker.process(p)
+                events=[] if recovery_only else self.tracker.process(p)
                 current=self.tracker.state["vessels"][p["mmsi"]]
                 current["shipname"]=row.get("shipname") or p["mmsi"]
                 # One bounded history lookup per unlinked berth stay, never per poll.

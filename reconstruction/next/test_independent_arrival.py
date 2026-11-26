@@ -21,7 +21,7 @@ class IndependentArrival(unittest.TestCase):
   r=active_trip_rows(tr.state)[M]
   self.assertEqual(r["record_type"],"ARRIVAL_ONLY")
   self.assertIsNone(r["D0_utc"])
-  self.assertIsNone(r["eta_corrected"])
+  self.assertIsNone(r.get("eta_corrected"))
   self.assertEqual(r["etd_arrival"],fix(42)["ts"])
   self.assertEqual(daily_rows(tr.state,date(2026,11,25))[0],r)
   self.assertEqual(len(groups(tr.state)),1)
@@ -51,3 +51,10 @@ class IndependentArrival(unittest.TestCase):
   first=first_stationary([fix(8),fix(12,"PAKNING"),fix(16,"PAKNING")],p)
   self.assertEqual(first["ts"],fix(12)["ts"])
   self.assertIsNone(first_stationary([fix(0),fix(12,"PAKNING"),fix(16,"PAKNING")],p))
+
+ def test_stop_outside_berth_not_moving_bracket(self):
+  tr=OperationalTracker()
+  p=fix(10);p["sog"]=0
+  tr.process(p)
+  self.assertEqual(tr.process(fix(12,"PAKNING")),[])
+  self.assertIsNone(tr.state["vessels"][M]["voyage"])

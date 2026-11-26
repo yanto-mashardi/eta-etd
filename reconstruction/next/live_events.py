@@ -52,13 +52,14 @@ class OperationalTracker(Tracker):
                 v.update(voyage=None,predictions={});q=None
             if not s:
                 s=dict(port=p["port"],first=p,last=p,n=0,votes={},bracket=prev["ts"] if prev and not prev["candidate"] and not gap else None,confirmed=False)
+                s["arrival_moving_bracket"]=bool(prev and not prev["candidate"] and prev["sog"]>.8 and not gap)
                 v["stop"]=s
             s["n"]+=1;s["last"]=p
             if proxy:s["proxy_clock"]=True
             if not p["ambiguous"]:s["votes"][p["berth"]]=s["votes"].get(p["berth"],0)+1
             if not s["confirmed"] and s["n"]>=3 and minutes(s["first"]["ts"],p["ts"])>=4 and (not s["bracket"] or minutes(s["bracket"],s["first"]["ts"])<=10):
                 s["confirmed"]=True
-            if not q and s.get("bracket") and 0<minutes(s["bracket"],s["first"]["ts"])<=10:
+            if not q and s.get("arrival_moving_bracket") and s.get("bracket") and 0<minutes(s["bracket"],s["first"]["ts"])<=10:
                 events.append(self.arrival_only(v,p,s["first"],"ARRIVAL_ONLY"))
                 q=v["voyage"]
             # Operational A uses first observed stationary destination fix, not the confirmation time.

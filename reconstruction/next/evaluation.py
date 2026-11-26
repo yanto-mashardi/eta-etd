@@ -71,6 +71,7 @@ def record_trip(state,m,v,cycle=None,status=None,observed_exit=None):
     row["status"]=status or ("COMPLETED_QC_PASS" if cycle else v.get("status","ONGOING"))
     # Never erase already published values or confirmed berth evidence with a missing field.
     journal[key]={**previous,**{k:x for k,x in row.items() if x is not None}}
+    if not q.get("D0_utc"):journal[key]["D0_utc"]=None
 
 def timing_comparison(actual,estimate,published):
     if not (actual and estimate and published) or dt(published)>=dt(actual):return None

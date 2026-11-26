@@ -31,6 +31,6 @@ class LiveLifecycle(unittest.TestCase):
   phases=[]
   for n,p in [(0,None),(2,"BENGKALIS"),(4,"BENGKALIS"),(6,"BENGKALIS"),(8,None),(16,None),(24,None),(32,None),(38,"PAKNING"),(40,"PAKNING"),(42,"PAKNING"),(46,"PAKNING"),(48,None)]:
    phases.extend(x["phase"] for x in tr.process(fix(n,p)))
-  self.assertEqual(phases,["D0","A","D0"])
+  self.assertEqual(phases,["A","D0","A","D0"]) # initial independently observed arrival
   self.assertEqual(len(tr.state["cycles"]),1)
   self.assertEqual(tr.state["vessels"][M]["voyage"]["origin_port"],"PAKNING")
