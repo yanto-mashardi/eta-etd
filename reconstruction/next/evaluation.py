@@ -5,11 +5,15 @@ from zoneinfo import ZoneInfo
 WIB=ZoneInfo("Asia/Jakarta")
 def delta(a,b):
     return round(minutes(a,b),3) if a and b else None
+def trip_key(m,q):
+    if q.get("D0_utc"):return str(m)+"|"+dt(q["D0_utc"]).isoformat()
+    return str(m)+"|A|"+dt(q.get("A_utc") or q["ATA"]).isoformat()
+def row_start(r):return r.get("D0_utc") or r["ATA"]
 def evaluate(m,voyage,predictions,cycle=None):
     d=predictions.get("D0",{});a=predictions.get("A",{})
-    origin=voyage["D0_utc"]
+    origin=voyage.get("D0_utc")
     # Reject mismatched predictions, including stale persisted results.
-    if d.get("issue_utc")!=origin:d={}
+    if not origin or d.get("issue_utc")!=origin:d={}
     if a.get("issue_utc")!=voyage.get("A_utc"):a={}
     base=d.get("eta_components",{}).get("baseline_min")
     eta_base=(dt(origin)+timedelta(minutes=base)).isoformat() if base is not None else None
@@ -23,7 +27,7 @@ def evaluate(m,voyage,predictions,cycle=None):
     conv_ok=bool(real and arrived and dt(arrived)<dt(real))
     comparable=bool(issued and arrived and dt(issued)<=dt(arrived))
     return {"mmsi":m,"origin_port":voyage["origin_port"],"destination_port":voyage["destination_port"],
-        "trip_id":str(m)+"|"+dt(origin).isoformat(),"D0_utc":origin,"ATA":ata,"eta_base":eta_base,"eta_corrected":eta,
+        "trip_id":trip_key(m,voyage),"D0_utc":origin,"ATA":ata,"eta_base":eta_base,"eta_corrected":eta,
         "eta_correction_min":delta(eta_base,eta),"vtt_early_base_min":d.get("vtt_components",{}).get("baseline_min"),"vtt_conventional_base_min":a.get("vtt_components",{}).get("baseline_min"),"vtt_early_min":d.get("vtt_components",{}).get("duration_min"),"etd_early":early,"etd_arrival":conv,"etd_real":real,
         "early_error_min":delta(real,early) if early_ok else None,
         "arrival_error_min":delta(real,conv) if conv_ok else None,
@@ -58,9 +62,10 @@ def record_trip(state,m,v,cycle=None,status=None,observed_exit=None):
     row["sog"]=last.get("sog")
     row["last_fix_utc"]=last.get("ts")
     if observed_exit:row["etd_real"]=observed_exit
-    row["event_quality"]="QC_PASS" if cycle else "QC_FAIL" if observed_exit else "PENDING"
+    row["event_quality"]="QC_PASS" if cycle else "QC_FAIL" if observed_exit else "ARRIVAL_ONLY" if not q.get("D0_utc") else "PENDING"
     row["event_qc_flags"]="|".join(q.get("qc_flags",[]))
     row["publication_protocol"]=q.get("publication_protocol","LEGACY_CONFIRMATION")
+    if not q.get("D0_utc"):row["record_type"]="ARRIVAL_ONLY"
     row["last_source_fix_utc"]=last.get("source_fix_utc",last.get("ts"))
     row["last_clock_basis"]=last.get("clock_basis","AIS_UPDATE")
     row["status"]=status or ("COMPLETED_QC_PASS" if cycle else v.get("status","ONGOING"))
@@ -84,10 +89,10 @@ def with_vtt(row):
 def daily_rows(state,day):
     rows=list(state.get("trip_monitor",{}).values())
     def included(r):
-        start=dt(r["D0_utc"]).astimezone(WIB).date()
-        end=dt(r.get("etd_real") or r.get("last_fix_utc") or r["D0_utc"]).astimezone(WIB).date()
+        start=dt(row_start(r)).astimezone(WIB).date()
+        end=dt(r.get("etd_real") or r.get("last_fix_utc") or row_start(r)).astimezone(WIB).date()
         return start<=day<=end
-    return sorted((with_vtt(r) for r in rows if included(r)),key=lambda r:(dt(r["D0_utc"]),r["mmsi"]))
+    return sorted((with_vtt(r) for r in rows if included(r)),key=lambda r:(dt(row_start(r)),r["mmsi"]))
 
 def active_trip_rows(state):
     """Public projection of the same stored rows used by daily monitoring."""
@@ -96,7 +101,7 @@ def active_trip_rows(state):
     for m,v in state.get("vessels",{}).items():
         q=v.get("voyage")
         if not q:continue
-        key=str(m)+"|"+dt(q["D0_utc"]).isoformat()
+        key=trip_key(m,q)
         row=journal.get(key)
         if row and row["status"] in ("SAILING","ARRIVAL_CANDIDATE","BERTHED","DEPARTURE_PENDING"):
             result[m]=with_vtt(row)

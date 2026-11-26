@@ -47,7 +47,7 @@ def publish(ais_rows,ais_status,now,journal,active,states):
                 if r:issue("AIS_EVENT_PHASE_CONFLICT")
                 else:
                     if s.get("status")=="BERTHED" and s.get("port")==p["port"]:v["status"]="SANDAR"
-                    issue("NO_ACTIVE_TRIP")
+                    issue("ARRIVAL_NOT_OBSERVED" if s.get("status")=="BERTHED" else "NO_ACTIVE_TRIP")
                 pending(p["port"],v["status"])
                 continue
         elif r.get("ATA"):

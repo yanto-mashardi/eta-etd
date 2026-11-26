@@ -8,7 +8,8 @@ import time
 from prediction_archive import prune_verified
 from trajectories import expire_cache
 from copy import deepcopy
-from evaluation import record_trip,daily_rows,active_trip_rows,WIB
+from evaluation import record_trip,daily_rows,active_trip_rows,WIB,trip_key
+from arrival_recovery import find_arrival
 from operational import publish
 from live_events import OperationalTracker
 from observation_clock import resolve
@@ -45,11 +46,17 @@ class Live:
                 events=self.tracker.process(p)
                 current=self.tracker.state["vessels"][p["mmsi"]]
                 current["shipname"]=row.get("shipname") or p["mmsi"]
+                # One bounded history lookup per unlinked berth stay, never per poll.
+                stop=current.get("stop")
+                if p["candidate"] and stop and not current.get("voyage") and not stop.get("arrival_recovery_attempted"):
+                    stop["arrival_recovery_attempted"]=True
+                    first=find_arrival(self.ais,p)
+                    if first:events.append(self.tracker.arrival_only(current,p,first,"RECOVERED_ARRIVAL"))
                 completed=self.tracker.state["cycles"][ncycles:]
-                if old.get("voyage") and (not current.get("voyage") or old["voyage"]["D0_utc"]!=current["voyage"]["D0_utc"]):
+                if old.get("voyage") and (not current.get("voyage") or trip_key(p["mmsi"],old["voyage"])!=trip_key(p["mmsi"],current["voyage"])):
                     old["shipname"]=current["shipname"]
                     exit_event=current.get('operational_exit') or {}
-                    old_id=p['mmsi']+'|'+dt(old['voyage']['D0_utc']).isoformat()
+                    old_id=trip_key(p['mmsi'],old['voyage'])
                     if completed: record_trip(self.tracker.state,p['mmsi'],old,completed[-1])
                     elif exit_event.get('trip_id')==old_id:
                         old['voyage']['qc_flags']=exit_event['qc_flags']
