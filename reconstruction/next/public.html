@@ -58,10 +58,10 @@ tbody tr:nth-child(odd){background:#eaf7ff}.status{background:#cfeaff;color:#084
 #terminalInset .maplibregl-ctrl-scale{font-size:9px;padding:0 3px;line-height:12px}
 #terminalInset .maplibregl-ctrl-bottom-left .maplibregl-ctrl{margin:0 0 3px 3px}
 #terminalInset .maplibregl-ctrl-bottom-right .maplibregl-ctrl{margin:0 3px 3px 0}
-.vessel-marker{width:26px;height:26px}.vessel-marker .shipicon{width:26px;height:26px;font-size:16px;border-width:1.5px}
+.vessel-marker{width:34px;height:34px}.vessel-marker .shipicon{width:34px;height:34px;font-size:20px;border-width:1.5px}
 .vessel-marker .fix-dot{position:absolute;left:50%;top:50%;width:4px;height:4px;transform:translate(-50%,-50%);border-radius:50%;background:#075a93;border:1px solid white;pointer-events:none}
-.vessel-marker .vessel-label{font-size:11px;padding:2px 4px;bottom:30px;pointer-events:none}
-.inset-vessel{width:17px;height:17px}.inset-vessel .shipicon{width:17px;height:17px;font-size:11px;border-width:1px}.inset-vessel .vessel-label{font-size:9px;padding:1px 3px;bottom:21px}
+.vessel-marker .vessel-label{font-size:13px;padding:3px 5px;bottom:38px;pointer-events:none;z-index:2;white-space:normal;overflow-wrap:anywhere;width:max-content;max-width:220px}
+.inset-vessel{width:28px;height:28px}.inset-vessel .shipicon{width:28px;height:28px;font-size:17px;border-width:1px}.inset-vessel .vessel-label{font-size:11px;padding:2px 3px;bottom:32px;max-width:160px}
 .inset-berth{width:8px;height:8px;border-width:1px}.inset-berth-label{position:absolute;left:50%;top:10px;transform:translateX(-50%);white-space:nowrap;background:#ffffffec;padding:1px 3px;font-size:9px;border-radius:2px;color:#24536c;pointer-events:none}
 @media(max-width:650px){#terminalInset{width:46%;height:42%}}
 </style></head><body><nav><b>Bengkalis–Pakning Ferry</b><a href="/bengkalis">Bengkalis</a><a href="/pakning">Pakning</a><a href="/inspection">Inspection</a><button id="fullscreen" type="button" aria-label="Layar penuh">Layar penuh</button></nav><main><div class="eyebrow">Ferry Information Board</div><h1 id="title"></h1><p class="sub" id="intro"></p><div id="notice" class="warn">Menunggu data AIS...</div><div class="layout"><aside class="kpis" id="kpis"></aside><section class="card mapcard"><div class="head"><div><b>Peta Kapal Realtime</b><small id="mapStatus">Memuat CARTO Voyager</small></div></div><div class="maparea"><div id="map">Memuat peta...</div><div id="terminalInset" aria-label="Peta detail terminal"><div id="insetMap"></div><div id="insetCaption" class="inset-caption"></div></div></div><div class="berths" id="berths"></div></section><div class="boards"><section class="card"><div class="head"><div><b id="arrivalTitle"></b><small>Kapal menuju terminal atau sudah tiba</small></div></div><div class="scroll"><table><thead><tr><th>Kapal</th><th>Dari</th><th>ETA</th><th>Kecepatan</th><th>Jarak</th><th>Status kedatangan</th></tr></thead><tbody id="arrivals"></tbody></table></div></section><section class="card"><div class="head"><div><b id="departureTitle"></b><small>Estimasi dan keberangkatan aktual pada siklus aktif</small></div></div><div class="scroll"><table><thead><tr><th>Kapal</th><th>Tujuan</th><th>ETD</th><th>Dermaga</th><th>Status</th></tr></thead><tbody id="departures"></tbody></table></div></section><div class="foot">Jam ETA/ETD: biru = estimasi awal; hijau = estimasi saat sandar; hitam = aktual tidak terlambat; merah = aktual terlambat; abu-abu = tanpa pembanding. (Estimasi) = waktu prediksi.</div></div></div></main><script>
@@ -122,25 +122,38 @@ function initInset(){
  insetMap.on('resize',fit);
  }catch(e){$('insetCaption').textContent='Detail dermaga tidak tersedia';console.warn(e)}
 }
-function overlaps(a,b){return a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top}
+function overlapArea(a,b){return Math.max(0,Math.min(a.right,b.right)-Math.max(a.left,b.left))*Math.max(0,Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top))}
+function labelPosition(anchor,w,h,bounds,used){
+ const clamp=(x,lo,hi)=>Math.max(lo,Math.min(Math.max(lo,hi),x));
+ let best=null;
+ for(const gap of [4,12,24,40,60,84]){
+  const cx=(anchor.left+anchor.right)/2,cy=(anchor.top+anchor.bottom)/2;
+  for(const [x,y] of [[cx-w/2,anchor.top-gap-h],[cx-w/2,anchor.bottom+gap],[anchor.right+gap,cy-h/2],[anchor.left-gap-w,cy-h/2],[anchor.right+gap,anchor.top-gap-h],[anchor.left-gap-w,anchor.top-gap-h],[anchor.right+gap,anchor.bottom+gap],[anchor.left-gap-w,anchor.bottom+gap]]){
+   const left=clamp(x,bounds.left,bounds.right-w),top=clamp(y,bounds.top,bounds.bottom-h);
+   const rect={left,top,right:left+w,bottom:top+h};
+   const score=used.reduce((sum,b)=>sum+overlapArea(rect,b),0);
+   if(!best||score<best.score)best={...rect,score};
+   if(score===0)return best;
+  }
+ }
+ return best;
+}
 function arrangeLabels(target,list){
  if(!target||!list.length)return;
  const frame=target.getContainer().getBoundingClientRect(),inset=target===insetMap;
  const bounds={left:frame.left+3,right:frame.right-3,top:frame.top+(inset?22:3),bottom:frame.bottom-3};
- const inside=r=>r.left>=bounds.left&&r.right<=bounds.right&&r.top>=bounds.top&&r.bottom<=bounds.bottom;
  const used=list.map(m=>m.getElement().getBoundingClientRect());
- if(!inset){const box=$('terminalInset').getBoundingClientRect();used.push(box)}
+ if(!inset)used.push($('terminalInset').getBoundingClientRect());
  for(const m of list){
- const n=m.getElement(),label=n.querySelector('.vessel-label');if(!label)continue;
- label.style.display='block';
- let placed=false;
- for(const pos of ['top','bottom','right','left']){
- label.style.top='auto';label.style.bottom='auto';label.style.left='auto';label.style.right='auto';label.style.transform='none';
- if(pos==='top'||pos==='bottom'){label.style.left='50%';label.style.transform='translateX(-50%)';label.style[pos==='top'?'bottom':'top']='calc(100% + 4px)'}
- else{label.style.top='50%';label.style.transform='translateY(-50%)';label.style[pos==='right'?'left':'right']='calc(100% + 4px)'}
- const r=label.getBoundingClientRect();if(inside(r)&&!used.some(b=>overlaps(r,b))){used.push(r);placed=true;break}
- }
- if(!placed)label.style.display='none'; // exact marker stays visible; click for full name
+  const n=m.getElement(),label=n.querySelector('.vessel-label');if(!label)continue;
+  const anchor=n.getBoundingClientRect();
+  label.style.display='block';label.style.top='0';label.style.left='0';label.style.bottom='auto';label.style.right='auto';label.style.transform='none';
+  label.style.maxWidth=Math.max(30,Math.min(inset?160:220,bounds.right-bounds.left))+'px';
+  const w=label.offsetWidth,h=label.offsetHeight;
+  const chosen=labelPosition(anchor,w,h,bounds,used);
+  if(!chosen)continue;
+  label.style.left=(chosen.left-anchor.left)+'px';label.style.top=(chosen.top-anchor.top)+'px';
+  used.push(chosen);
  }
 }
 function drawOn(target,rows,valid,isInset){
