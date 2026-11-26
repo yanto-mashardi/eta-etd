@@ -38,16 +38,16 @@ def write(p,obj,mode=0o640):
     finally:
         if os.path.exists(tmp):os.unlink(tmp)
 def publisher(config,port):
-    return next((u for u in config["authInternalUsers"] if any(x.get("action")=="publish" and x.get("path")==port for x in u.get("permissions",[]))),None)
+    return next((u for u in config["authInternalUsers"] if any(x.get("action")=="publish" and x.get("path")=="live/"+port for x in u.get("permissions",[]))),None)
 def view(port,cfg,meta):
     u=publisher(cfg,port);m=meta.get(port,{})
-    p=relay("/v3/paths/get/"+port) or {}
-    return {"port":port,"device":m.get("device","CCTV "+port.title()),"kind":m.get("kind","CCTV"),"enabled":bool(u),"username":u["user"] if u else m.get("username",port+"_pub"),"ready":bool(p.get("ready")),"ready_time":p.get("readyTime"),"tracks":p.get("tracks",[]),"bytes_received":p.get("bytesReceived"),"readers":len(p.get("readers") or []),"rtmp_url":"rtmp://"+HOST+":1935/"+port,"rtsp_url":"rtsp://"+HOST+":8554/"+port,"updated_at":m.get("updated_at")}
+    p=relay("/v3/paths/get/live/"+port) or {}
+    return {"port":port,"device":m.get("device","CCTV "+port.title()),"kind":m.get("kind","CCTV"),"enabled":bool(u),"username":u["user"] if u else m.get("username",port+"_pub"),"ready":bool(p.get("ready")),"ready_time":p.get("readyTime"),"tracks":p.get("tracks",[]),"bytes_received":p.get("bytesReceived"),"readers":len(p.get("readers") or []),"rtmp_url":"rtmp://"+HOST+":1935/live/"+port,"rtsp_url":"rtsp://"+HOST+":8554/live/"+port,"updated_at":m.get("updated_at")}
 def connection_fields(port,user,password):
     if port not in PORTS:raise ValueError("Unknown port")
-    server="rtmp://"+HOST+":1935"
+    server="rtmp://"+HOST+":1935/live"
     key=port+"?"+urlencode({"user":user,"pass":password})
-    return {"url":server+"/"+key,"server":server,"stream_key":key,"rtsp_url":"rtsp://"+HOST+":8554/"+port}
+    return {"url":server+"/"+key,"server":server,"stream_key":key,"rtsp_url":"rtsp://"+HOST+":8554/live/"+port}
 
 @router.post("/{port}/connection")
 def connection(port:str,response:Response,authorization:str=Header(default="")):
@@ -76,7 +76,7 @@ def change(port:str,body:Change,response:Response,authorization:str=Header(defau
     admin(authorization);response.headers["Cache-Control"]="no-store"
     if port not in PORTS:raise HTTPException(404,"Unknown port")
     if body.username in ("any","campus_reader"):raise HTTPException(422,"Reserved username")
-    if body.password and not re.fullmatch(r"[A-Za-z0-9_-]{16,128}",body.password):raise HTTPException(422,"Password: 16–128 letters, digits, underscore or hyphen")
+    if body.password and not re.fullmatch(r"[A-Za-z0-9_-]{6,128}",body.password):raise HTTPException(422,"Password: 6–128 letters, digits, underscore or hyphen")
     with LOCK:
         cfg=read(CONFIG);meta=read(META);old=publisher(cfg,port)
         current=relay("/v3/config/global/get")
@@ -86,11 +86,11 @@ def change(port:str,body:Change,response:Response,authorization:str=Header(defau
         password=body.password or (old or {}).get("pass","")
         if body.enabled and not password:raise HTTPException(422,"Set a new publisher password")
         updated=dict(cfg)
-        updated["authInternalUsers"]=users+([{"user":body.username,"pass":password,"permissions":[{"action":"publish","path":port}]}] if body.enabled else [])
+        updated["authInternalUsers"]=users+([{"user":body.username,"pass":password,"permissions":[{"action":"publish","path":"live/"+port}]}] if body.enabled else [])
         changed=(bool(old)!=body.enabled or (body.enabled and (old.get("user")!=body.username or old.get("pass")!=password)))
         if changed:
             # Disconnect only the previous RTMP publisher before changing access.
-            p=relay("/v3/paths/get/"+port) or {}
+            p=relay("/v3/paths/get/live/"+port) or {}
             src=p.get("source") or {}
             if p.get("ready") and src.get("type")!="rtmpConn":raise HTTPException(409,"Stop the current publisher before changing credentials")
             if p.get("ready") and src.get("id"):

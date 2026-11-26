@@ -3,3 +3,6 @@ Based on ETA–ETD f01b1ba and CCTV-to-YOLO bc742b0. Fixed paths Bengkalis/Pakni
 
 ## Device-specific provisioning
 Larix: full URL. OBS Custom and VIGI: server plus stream key; full URL alternative. VIGI query forwarding is not verified. A separate authenticated POST explicitly retrieves saved publisher credentials only on request; regular status response remains secret-free. No-store response, masked fields, clear on logout/change, no persistent browser storage. Credentials can be copied only after configuration is saved. Update of metadata alone no longer triggers relay reload. Existing installer remains required. Tests added, runtime execution pending. RTSP reader credentials unchanged.
+
+## Larix two-component path migration
+Larix rejects a single path component. Use application live and stream key bengkalis/pakning, with query credentials. RTSP clients must update to /live/bengkalis and /live/pakning once. Installer migrates existing manager JSON and publisher/reader permissions, retains credentials and root-only backup. Password policy permits 6–128 URL-safe characters for publishers; strong passwords remain recommended on public internet. Admin token and reader password unchanged. Actual streaming and reload tests pending.

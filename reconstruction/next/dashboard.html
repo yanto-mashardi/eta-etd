@@ -93,7 +93,7 @@ function build(c){
  const device=field(f,'Nama perangkat',c.device),kind=make('select');
  for(const k of ['Larix','OBS','CCTV'])kind.add(new Option(k==='CCTV'?'CCTV fisik / VIGI':k,k));
  kind.value=c.kind;const kl=make('label','Jenis perangkat');kl.append(kind);f.append(kl);
- const user=field(f,'Username publisher',c.username),pass=field(f,'Password baru (kosong = tetap)','','password');pass.autocomplete='new-password';
+ const user=field(f,'Username publisher',c.username),pass=field(f,'Password baru (min. 6 karakter; kosong = tetap)','','password');pass.autocomplete='new-password';pass.minLength=6;pass.maxLength=128;
  const active=field(f,'Aktif','','checkbox');active.checked=c.enabled;
  const save=make('button','Simpan konfigurasi');save.type='submit';f.append(save,button('Test koneksi',refresh));
  const output=make('div');output.className='cctv-output';box.append(output);
