@@ -2,6 +2,8 @@
 import csv,json,threading
 from datetime import datetime,timezone
 from pathlib import Path
+from collections import Counter
+import logging
 from events import Tracker,read_seed,classify,atomic_json,dt
 from engine import estimate
 from stockflow import Ledger
@@ -14,16 +16,16 @@ class Live:
         self.seed_path=self.root/"data"/"historical_cycles.csv"
         seed=read_seed(self.seed_path) if self.seed_path.exists() else []
         state=json.loads(self.path.read_text()) if self.path.exists() else None
-        self.tracker=Tracker(state,seed);self.error=None;self.rejected=0
+        self.tracker=Tracker(state,seed);self.error=None;self.rejected=0;self.rejection_reasons=Counter();self.duplicates=0
     def tick(self):
         now=datetime.now(timezone.utc)
         with self.ais.open(encoding="utf-8-sig",newline="") as f: rows=list(csv.DictReader(f))
         for row in rows:
             try: p=classify(row,now,self.field)
-            except (ValueError,KeyError,TypeError): self.rejected+=1;continue
+            except (ValueError,KeyError,TypeError) as e: self.rejected+=1;self.rejection_reasons[str(e)[:120]]+=1;continue
             with self.lock:
                 previous=self.tracker.state["vessels"].get(p["mmsi"],{}).get("last")
-                if previous and dt(p["ts"])<=dt(previous["ts"]): continue
+                if previous and dt(p["ts"])<=dt(previous["ts"]): self.duplicates+=1;continue
                 for event in self.tracker.process(p):
                     if event["phase"]=="D0": self.ledger.departure(event["features"]["origin_port"],p["mmsi"],event["issue_utc"])
                     result={"status":"WAITING_MODEL_OR_HISTORY","issue_utc":event["issue_utc"],"published_at":event["published_at"],"release":self.release}
@@ -39,9 +41,9 @@ class Live:
     def run(self):
         while not self.stop.is_set():
             try: self.tick()
-            except Exception as e: self.error=type(e).__name__
+            except Exception as e: self.error=type(e).__name__;logging.exception("Live tick failed")
             self.stop.wait(5)
     def snapshot(self):
         with self.lock:
             return {"vessels":self.tracker.snapshot(datetime.now(timezone.utc)),"history_seed_count":self.tracker.seed_count,
-                    "completed_live_cycles":len(self.tracker.state["cycles"]),"status":"STAGING_UNVALIDATED" if not self.error else "ERROR:"+self.error,"rejected_rows":self.rejected}
+                    "completed_live_cycles":len(self.tracker.state["cycles"]),"status":"STAGING_UNVALIDATED" if not self.error else "ERROR:"+self.error,"rejected_rows":self.rejected,"rejection_reasons":dict(self.rejection_reasons),"duplicate_polls":self.duplicates,"timestamp_field":self.field}

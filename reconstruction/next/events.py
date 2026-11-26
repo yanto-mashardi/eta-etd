@@ -104,8 +104,10 @@ class Tracker:
                     s["arrival_features"]=features(self.history,p,q["origin_port"],q["destination_port"])
             s["n"]+=1;s["last"]=p
             if not p["ambiguous"]: s["votes"][p["berth"]]=s["votes"].get(p["berth"],0)+1
-            if not s["confirmed"] and s["n"]>=3 and minutes(s["first"]["ts"],p["ts"])>=4 and s["bracket"] and minutes(s["bracket"],s["first"]["ts"])<=10:
+            if not s["confirmed"] and s["n"]>=3 and minutes(s["first"]["ts"],p["ts"])>=4 and (not s["bracket"] or minutes(s["bracket"],s["first"]["ts"])<=10):
                 s["confirmed"]=True;v["status"]="BERTHED"
+                # A stationary observation window establishes origin occupancy, not an actual arrival.
+                s["arrival_observed"]=bool(s["bracket"])
                 q=v["voyage"]
                 if q and "arrival_features" in s and q["destination_port"]==p["port"]:
                     q["A_utc"]=s["first"]["ts"]
@@ -143,5 +145,5 @@ class Tracker:
             last=v["last"];s=v["stop"];votes=s["votes"] if s else {}
             berth=max(votes,key=votes.get) if votes and max(votes.values())/s["n"]>=.8 else None
             stale=not last or (now-dt(last["ts"])).total_seconds()>300
-            out[m]={"status":"STALE" if stale else v["status"],"port":s["port"] if s else None,"berth":berth,"voyage":v["voyage"],"predictions":v["predictions"],"last_fix_utc":last["ts"] if last else None}
+            out[m]={"status":"STALE" if stale else v["status"],"port":s["port"] if s else None,"berth":berth,"voyage":v["voyage"],"predictions":v["predictions"],"last_fix_utc":last["ts"] if last else None,"stop_observations":s["n"] if s else 0,"stop_span_min":round(minutes(s["first"]["ts"],s["last"]["ts"]),2) if s else None,"arrival_bracket":s["bracket"] if s else None}
         return out
