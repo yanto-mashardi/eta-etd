@@ -58,6 +58,14 @@ def trajectories(day: str = ""):
     try:return daily(AIS,selected)
     except OSError:raise HTTPException(503,"Local AIS archive unreadable")
 
+@app.get("/api/inspection/monitoring")
+def monitoring(day: str = ""):
+    today=datetime.now(WIB).date()
+    try:selected=date.fromisoformat(day) if day else today
+    except ValueError:raise HTTPException(400,"Expected YYYY-MM-DD")
+    if selected>today:raise HTTPException(400,"Future date")
+    return {"date":selected.isoformat(),"rows":live.monitoring(selected) if live else []}
+
 @app.get("/api/status")
 def status():
     try:

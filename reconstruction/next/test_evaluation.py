@@ -12,3 +12,17 @@ class EvaluationTest(unittest.TestCase):
   self.assertEqual(r["lead_advantage_min"],44)
   self.assertEqual(r["lead_to_departure_min"],61)
   self.assertIsNone(evaluate("525003298",v,p)["early_error_min"])
+
+ def test_retention(self):
+  from evaluation import record_trip,daily_rows
+  from datetime import date
+  state={}
+  v={"voyage":{"D0_utc":"2026-11-26T01:00:00+00:00","A_utc":"2026-11-26T01:40:00+00:00","origin_port":"BENGKALIS","destination_port":"PAKNING"},"stop":{"confirmed":True,"port":"PAKNING","votes":{"PKN-01":3},"n":3},"last":{"ts":"2026-11-26T01:44:00+00:00","sog":0},"predictions":{}}
+  record_trip(state,"525003298",v)
+  record_trip(state,"525003298",v,{"D1_utc":"2026-11-26T02:00:00+00:00"})
+  v["voyage"]={"D0_utc":"2026-11-26T02:00:00+00:00","origin_port":"PAKNING","destination_port":"BENGKALIS"}
+  record_trip(state,"525003298",v)
+  rows=daily_rows(state,date(2026,11,26))
+  self.assertEqual(len(rows),2)
+  self.assertEqual(rows[0]["departure_berth"],"PKN-01")
+  self.assertEqual(rows[0]["status"],"COMPLETED_QC_PASS")

@@ -1,6 +1,8 @@
 """Frozen predictions and AIS-reconstructed actuals, per voyage."""
 from datetime import timedelta
 from events import dt,minutes
+from zoneinfo import ZoneInfo
+WIB=ZoneInfo("Asia/Jakarta")
 def delta(a,b):
     return round(minutes(a,b),3) if a and b else None
 def evaluate(m,voyage,predictions,cycle=None):
@@ -21,8 +23,8 @@ def evaluate(m,voyage,predictions,cycle=None):
     conv_ok=bool(real and arrived and dt(arrived)<dt(real))
     comparable=bool(issued and arrived and dt(issued)<=dt(arrived))
     return {"mmsi":m,"origin_port":voyage["origin_port"],"destination_port":voyage["destination_port"],
-        "D0_utc":origin,"ATA":ata,"eta_base":eta_base,"eta_corrected":eta,
-        "eta_correction_min":delta(eta_base,eta),"etd_early":early,"etd_arrival":conv,"etd_real":real,
+        "trip_id":str(m)+"|"+dt(origin).isoformat(),"D0_utc":origin,"ATA":ata,"eta_base":eta_base,"eta_corrected":eta,
+        "eta_correction_min":delta(eta_base,eta),"vtt_early_min":d.get("vtt_components",{}).get("duration_min"),"etd_early":early,"etd_arrival":conv,"etd_real":real,
         "early_error_min":delta(real,early) if early_ok else None,
         "arrival_error_min":delta(real,conv) if conv_ok else None,
         "early_abs_error_min":abs(delta(real,early)) if early_ok else None,
@@ -32,3 +34,37 @@ def evaluate(m,voyage,predictions,cycle=None):
         "lead_to_departure_min":delta(issued,real) if early_ok else None,
         "release_early":d.get("release"),"release_arrival":a.get("release"),
         "status":"COMPLETED_QC_PASS" if cycle else "ONGOING"}
+
+def berth_of(v):
+    s=v.get("stop") or {}
+    votes=s.get("votes") or {}
+    return max(votes,key=votes.get) if s.get("confirmed") and votes and s.get("n") and max(votes.values())/s["n"]>=.8 else None
+
+def record_trip(state,m,v,cycle=None,status=None):
+    q=v.get("voyage")
+    if not q:return
+    row=evaluate(m,q,v.get("predictions",{}),cycle)
+    key=row["trip_id"]
+    journal=state.setdefault("trip_monitor",{})
+    previous=journal.get(key,{})
+    if previous.get("status")=="COMPLETED_QC_PASS":return
+    last=v.get("last") or {}
+    s=v.get("stop") or {}
+    if q.get("A_utc") and s.get("port")==q["destination_port"]:
+        b=berth_of(v)
+        if b:row["arrival_berth"]=b
+    row["departure_berth"]=row.get("arrival_berth",previous.get("arrival_berth"))
+    row["shipname"]=v.get("shipname") or previous.get("shipname") or m
+    row["sog"]=last.get("sog")
+    row["last_fix_utc"]=last.get("ts")
+    row["status"]=status or ("COMPLETED_QC_PASS" if cycle else v.get("status","ONGOING"))
+    # Never erase already published values or confirmed berth evidence with a missing field.
+    journal[key]={**previous,**{k:x for k,x in row.items() if x is not None}}
+
+def daily_rows(state,day):
+    rows=list(state.get("trip_monitor",{}).values())
+    def included(r):
+        start=dt(r["D0_utc"]).astimezone(WIB).date()
+        end=dt(r.get("etd_real") or r.get("last_fix_utc") or r["D0_utc"]).astimezone(WIB).date()
+        return start<=day<=end
+    return sorted((r for r in rows if included(r)),key=lambda r:(dt(r["D0_utc"]),r["mmsi"]))
