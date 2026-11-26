@@ -1,0 +1,8 @@
+[Unit]
+Description=Export prediction CSV every 15 minutes
+[Timer]
+OnCalendar=*:0/15
+Persistent=true
+Unit=bima2-prediction-archive.service
+[Install]
+WantedBy=timers.target

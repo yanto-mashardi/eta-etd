@@ -4,6 +4,8 @@ from datetime import datetime,timezone
 from pathlib import Path
 from collections import Counter
 import logging
+import time
+from prediction_archive import prune_verified
 from copy import deepcopy
 from evaluation import record_trip,daily_rows,active_trip_rows,WIB
 from events import Tracker,read_seed,classify,atomic_json,dt
@@ -23,6 +25,7 @@ class Live:
         for m,v in self.tracker.state["vessels"].items():
             record_trip(self.tracker.state,m,v)
         atomic_json(self.path,self.tracker.state)
+        self.last_archive_prune=0
     def tick(self):
         now=datetime.now(timezone.utc)
         with self.ais.open(encoding="utf-8-sig",newline="") as f: rows=list(csv.DictReader(f))
@@ -55,6 +58,11 @@ class Live:
                     self.tracker.state["vessels"][p["mmsi"]]["predictions"][event["phase"]]=result
                 record_trip(self.tracker.state,p["mmsi"],current)
                 atomic_json(self.path,self.tracker.state)
+        if time.monotonic()-self.last_archive_prune>=60:
+            with self.lock:
+                if prune_verified(self.tracker.state,self.root/"data"/"prediction_archive",datetime.now(WIB).date()):
+                    atomic_json(self.path,self.tracker.state)
+                self.last_archive_prune=time.monotonic()
         self.error=None
     def run(self):
         while not self.stop.is_set():

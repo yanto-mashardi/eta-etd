@@ -1,0 +1,10 @@
+[Unit]
+Description=BIMA2 prediction CSV archive to Google Drive
+After=network-online.target
+[Service]
+Type=oneshot
+User=root
+Group=bima2next
+UMask=0027
+ExecStart=/usr/bin/python3 /opt/BIMA2_NEXT/app/prediction_archive.py /opt/BIMA2_NEXT
+Nice=10

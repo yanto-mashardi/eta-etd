@@ -63,7 +63,7 @@ def monitoring(day: str = ""):
     today=datetime.now(WIB).date()
     try:selected=date.fromisoformat(day) if day else today
     except ValueError:raise HTTPException(400,"Expected YYYY-MM-DD")
-    if selected>today:raise HTTPException(400,"Future date")
+    if not today-timedelta(days=6)<=selected<=today:raise HTTPException(400,"Local monitoring range: seven WIB calendar days including today")
     return {"date":selected.isoformat(),"rows":live.monitoring(selected) if live else []}
 
 @app.get("/api/status")
