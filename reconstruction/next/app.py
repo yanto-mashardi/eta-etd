@@ -11,9 +11,11 @@ from engine import load_release,estimate
 from live import Live
 from stockflow import Ledger
 from health import notices
+from cctv_manager import router as cctv_router
 ROOT=Path(os.getenv("BIMA2_NEXT_ROOT","/opt/BIMA2_NEXT"))
 AIS=Path(os.getenv("BIMA2_AIS_CSV","/opt/JAES_SIMULASI_BIMA2/data/01_DATA_SOURCE/AIS/realtime/ais_realtime.csv"))
 app=FastAPI(title="BIMA2 Next",docs_url=None,redoc_url=None)
+app.include_router(cctv_router)
 lock=threading.Lock()
 release=None
 models=None
