@@ -8,7 +8,8 @@ import time
 from prediction_archive import prune_verified
 from trajectories import expire_cache
 from copy import deepcopy
-from evaluation import record_trip,daily_rows,active_trip_rows,operational_boards,WIB
+from evaluation import record_trip,daily_rows,active_trip_rows,WIB
+from operational import publish
 from events import Tracker,read_seed,classify,atomic_json,dt
 from engine import estimate
 from stockflow import Ledger
@@ -21,7 +22,7 @@ class Live:
         self.seed_path=self.root/"data"/"historical_cycles.csv"
         seed=read_seed(self.seed_path) if self.seed_path.exists() else []
         state=json.loads(self.path.read_text()) if self.path.exists() else None
-        self.tracker=Tracker(state,seed);self.error=None;self.rejected=0;self.rejection_reasons=Counter();self.duplicates=0
+        self.tracker=Tracker(state,seed,require_moving_exit=True);self.error=None;self.rejected=0;self.rejection_reasons=Counter();self.duplicates=0
         # Import only already stored predictions from an ongoing voyage, never rerun them.
         for m,v in self.tracker.state["vessels"].items():
             record_trip(self.tracker.state,m,v)
@@ -75,14 +76,14 @@ class Live:
     def monitoring(self,day):
         with self.lock:
             return daily_rows(self.tracker.state,day)
-    def snapshot(self):
+    def snapshot(self,ais_rows=(),ais_status='UNAVAILABLE',now=None):
         with self.lock:
-            now=datetime.now(timezone.utc)
+            now=now or datetime.now(timezone.utc)
             active=active_trip_rows(self.tracker.state)
             rows=daily_rows(self.tracker.state,now.astimezone(WIB).date())
             states=self.tracker.snapshot(now)
             # Include prior day record for an active voyage crossing midnight.
             journal=self.tracker.state.get("trip_monitor",{})
-            boards=operational_boards(journal.values(),active,states)
-            return {"arrival_board":boards["arrivals"],"departure_board":boards["departures"],"active_trip_predictions":active,"prediction_evaluation":rows,"vessels":states,"history_seed_count":self.tracker.seed_count,
+            boards=publish(ais_rows,ais_status,now,journal.values(),active,states)
+            return {"arrival_board":boards["arrivals"],"departure_board":boards["departures"],"operational_vessels":boards["vessels"],"publication_issues":boards["issues"],"active_trip_predictions":active,"prediction_evaluation":rows,"vessels":states,"history_seed_count":self.tracker.seed_count,
                     "completed_live_cycles":len(self.tracker.state["cycles"]),"status":"STAGING_UNVALIDATED" if not self.error else "ERROR:"+self.error,"rejected_rows":self.rejected,"rejection_reasons":dict(self.rejection_reasons),"duplicate_polls":self.duplicates,"timestamp_field":self.field}

@@ -90,7 +90,7 @@ def status():
         except (OSError,ValueError): vehicles[port]=None
     if live:
         vehicles={p:live.ledger.snapshot(p) for p in ("bengkalis","pakning")}
-    event=live.snapshot() if live else None
+    event=live.snapshot(rows,ais_status,now) if live else None
     return {"notifications":notices(ais_status,rows,model_status,event,vehicles,now),"ais_status":ais_status,"ais_file_age_seconds":age,"vessels":rows,"models":{"release":release,"status":model_status,"algorithms":{r:b.get("algorithm",b.get("estimator_name")) for r,b in (models or {}).items()}},"vehicles":vehicles,"prediction_status":"STAGING_UNVALIDATED","event_engine":event}
 
 # Offline/staging prediction helper is intentionally not exposed as a public write API.

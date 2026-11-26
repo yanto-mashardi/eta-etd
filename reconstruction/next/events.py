@@ -32,7 +32,7 @@ def classify(row,now,field="ais_update_at"):
     distances=sorted((nm(lat,lon,*xy),p,b) for p,bs in PORTS.items() for b,xy in bs.items())
     dist,p,b=distances[0]; second=distances[1][0]
     candidate=sog<=.8 and dist<=.15
-    return {"mmsi":m,"ts":stamp.isoformat(),"received":now.isoformat(),"sog":sog,"cog":cog,
+    return {"mmsi":m,"ts":stamp.isoformat(),"received":now.isoformat(),"sog":sog,"cog":cog,"latitude":lat,"longitude":lon,
             "distance":dist,"port":p,"berth":b,"candidate":candidate,
             "ambiguous":candidate and (second<=.15 or (second-dist)*1852<50)}
 def cycle_key(c): return (str(c["mmsi"]),dt(c["D0_utc"]).isoformat(),dt(c["A_utc"]).isoformat(),dt(c["D1_utc"]).isoformat())
@@ -77,7 +77,8 @@ def atomic_json(path,obj):
         if os.path.exists(tmp): os.unlink(tmp)
 
 class Tracker:
-    def __init__(self,state=None,seed=()):
+    def __init__(self,state=None,seed=(),require_moving_exit=False):
+        self.require_moving_exit=require_moving_exit
         self.state=state or {"vessels":{},"cycles":[]}
         all_cycles={cycle_key(c):c for c in seed}
         all_cycles.update({cycle_key(c):c for c in self.state["cycles"]})
@@ -118,6 +119,10 @@ class Tracker:
             elif not s["confirmed"]: v["status"]="ARRIVAL_CANDIDATE"
         else:
             if s:
+                if self.require_moving_exit and s["confirmed"] and p["sog"]<=.8:
+                    # A stationary fix outside the berth radius is not proof of departure.
+                    v["status"]="DEPARTURE_PENDING";v["last"]=p
+                    return events
                 if s["confirmed"] and minutes(s["last"]["ts"],p["ts"])<=10:
                     q=v["voyage"]
                     if q and q.get("A_utc")==s["first"]["ts"] and q["destination_port"]==s["port"]:
@@ -145,5 +150,5 @@ class Tracker:
             last=v["last"];s=v["stop"];votes=s["votes"] if s else {}
             berth=max(votes,key=votes.get) if votes and max(votes.values())/s["n"]>=.8 else None
             stale=not last or (now-dt(last["ts"])).total_seconds()>300
-            out[m]={"status":"STALE" if stale else v["status"],"port":s["port"] if s else None,"berth":berth,"voyage":v["voyage"],"predictions":v["predictions"],"last_fix_utc":last["ts"] if last else None,"stop_observations":s["n"] if s else 0,"stop_span_min":round(minutes(s["first"]["ts"],s["last"]["ts"]),2) if s else None,"arrival_bracket":s["bracket"] if s else None,"nearest_berth":last["berth"] if last and last["candidate"] and not stale else None,"berth_confidence":"CONFIRMED" if berth and s and s["confirmed"] and not stale else "NEAREST_ONLY" if last and last["candidate"] and not stale else "UNKNOWN"}
+            out[m]={"status":"STALE" if stale else v["status"],"port":s["port"] if s else None,"berth":berth,"voyage":v["voyage"],"predictions":v["predictions"],"last_fix_utc":last["ts"] if last else None,"last_sog":last.get("sog") if last else None,"last_distance_nm":last.get("distance") if last else None,"last_latitude":last.get("latitude") if last else None,"last_longitude":last.get("longitude") if last else None,"stop_observations":s["n"] if s else 0,"stop_span_min":round(minutes(s["first"]["ts"],s["last"]["ts"]),2) if s else None,"arrival_bracket":s["bracket"] if s else None,"nearest_berth":last["berth"] if last and last["candidate"] and not stale else None,"berth_confidence":"CONFIRMED" if berth and s and s["confirmed"] and not stale else "NEAREST_ONLY" if last and last["candidate"] and not stale else "UNKNOWN"}
         return out

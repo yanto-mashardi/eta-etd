@@ -13,6 +13,8 @@ def notices(ais_status,rows,model_status,event,vehicles,now=None):
         if quality!="FRESH":add("AIS_STALE" if quality=="STALE" else "AIS_DATA_ERROR",str(r.get("shipname") or r.get("mmsi"))+": "+str(quality),"warning")
     if model_status!="MODEL_LOADED_UNVALIDATED":add("ML_ERROR","Model: "+model_status)
     if not event or str(event.get("status","")).startswith("ERROR"):add("EVENT_ERROR","Event engine tidak siap atau mengalami gangguan")
+    for x in (event or {}).get("publication_issues",[]):
+        add("AIS_EVENT_SYNC",x["shipname"]+": "+x["reason"],"warning")
     for m,v in (event or {}).get("vessels",{}).items():
         for phase,p in v.get("predictions",{}).items():
             if p.get("status")=="FEATURE_OR_MODEL_ERROR":add("ML_ERROR",str(m)+": inference "+phase+" gagal")

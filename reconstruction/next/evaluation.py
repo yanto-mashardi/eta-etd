@@ -92,7 +92,7 @@ def active_trip_rows(state):
         if not q:continue
         key=str(m)+"|"+dt(q["D0_utc"]).isoformat()
         row=journal.get(key)
-        if row and row["status"] in ("SAILING","ARRIVAL_CANDIDATE","BERTHED"):
+        if row and row["status"] in ("SAILING","ARRIVAL_CANDIDATE","BERTHED","DEPARTURE_PENDING"):
             result[m]=with_vtt(row)
     return result
 
