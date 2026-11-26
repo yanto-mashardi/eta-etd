@@ -74,7 +74,7 @@ def split_trips(points):
         nonlocal leg,origin,dest
         if leg:
             first,last=leg[0],leg[-1]
-            out.append(dict(trip_id=first["mmsi"]+"_"+str(len(out)+1),mmsi=first["mmsi"],shipname=last["shipname"],origin_port=origin,destination_port=dest,start_time=first["ts"],end_time=last["ts"],point_count=len(leg),duration_min=round(minutes(first["ts"],last["ts"]),2),status=status,points=[dict(ts=p["ts"],lat=p["lat"],lon=p["lon"],sog=p["sog"]) for p in leg]))
+            out.append(dict(trip_id=first["mmsi"]+"_"+str(len(out)+1),mmsi=first["mmsi"],shipname=last["shipname"],origin_port=origin,destination_port=dest,start_time=first["ts"],end_time=last["ts"],point_count=len(leg),duration_min=round(minutes(first["ts"],last["ts"]),2),status=("AT_BERTH" if all(p["candidate"] for p in leg) and not origin else status),points=[dict(ts=p["ts"],lat=p["lat"],lon=p["lon"],sog=p["sog"]) for p in leg]))
         leg=[];origin=None;dest=None
     prev=None
     for p in points:
@@ -91,8 +91,7 @@ def split_trips(points):
                 leg=[x for x in leg if dt(x["ts"])<=dt(arrival)]
                 if origin and dest:finish("COMPLETE")
         # A moving fragment without known D0 is still useful, not a validated trip.
-        if origin or not p["candidate"] or leg:
-            leg.append(p)
+        leg.append(p)
         prev=p
     finish("IN_PROGRESS" if origin else "PARTIAL")
     return out
@@ -111,10 +110,11 @@ def daily(ais,day):
                 conflicts.add(k)
             elif not old or p["received"]<old["received"]:
                 groups[p["mmsi"]][p["ts"]]=p
-        trips=[];count=0
+        trips=[];count=0;vessel_counts=[]
         for m,group in sorted(groups.items()):
             pts=sorted((p for ts,p in group.items() if (m,ts) not in conflicts),key=lambda x:dt(x["ts"]))
-            count+=len(pts);trips.extend(split_trips(pts))
-        result={"date":day.isoformat(),"timezone":"Asia/Jakarta","timestamp_basis":"provider_timestamp","point_count":count,"conflicting_fixes_excluded":len(conflicts),"trips":trips,"status":"AVAILABLE" if count else "NO_LOCAL_AIS","generated_at":datetime.now(timezone.utc).isoformat()}
+            count+=len(pts);segments=split_trips(pts);trips.extend(segments)
+            vessel_counts.append({"mmsi":m,"shipname":pts[-1]["shipname"] if pts else m,"accepted_points":len(pts),"conflicts":sum(1 for k in conflicts if k[0]==m),"segments":len(segments)})
+        result={"date":day.isoformat(),"timezone":"Asia/Jakarta","timestamp_basis":"provider_timestamp","point_count":count,"vessel_counts":vessel_counts,"conflicting_fixes_excluded":len(conflicts),"trips":trips,"status":"AVAILABLE" if count else "NO_LOCAL_AIS","generated_at":datetime.now(timezone.utc).isoformat()}
         _cache.clear();_cache[key]=(now,result)
         return result

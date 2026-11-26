@@ -145,5 +145,5 @@ class Tracker:
             last=v["last"];s=v["stop"];votes=s["votes"] if s else {}
             berth=max(votes,key=votes.get) if votes and max(votes.values())/s["n"]>=.8 else None
             stale=not last or (now-dt(last["ts"])).total_seconds()>300
-            out[m]={"status":"STALE" if stale else v["status"],"port":s["port"] if s else None,"berth":berth,"voyage":v["voyage"],"predictions":v["predictions"],"last_fix_utc":last["ts"] if last else None,"stop_observations":s["n"] if s else 0,"stop_span_min":round(minutes(s["first"]["ts"],s["last"]["ts"]),2) if s else None,"arrival_bracket":s["bracket"] if s else None}
+            out[m]={"status":"STALE" if stale else v["status"],"port":s["port"] if s else None,"berth":berth,"voyage":v["voyage"],"predictions":v["predictions"],"last_fix_utc":last["ts"] if last else None,"stop_observations":s["n"] if s else 0,"stop_span_min":round(minutes(s["first"]["ts"],s["last"]["ts"]),2) if s else None,"arrival_bracket":s["bracket"] if s else None,"nearest_berth":last["berth"] if last and last["candidate"] and not stale else None,"berth_confidence":"CONFIRMED" if berth and s and s["confirmed"] and not stale else "NEAREST_ONLY" if last and last["candidate"] and not stale else "UNKNOWN"}
         return out
