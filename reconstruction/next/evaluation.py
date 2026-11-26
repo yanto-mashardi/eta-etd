@@ -61,13 +61,19 @@ def record_trip(state,m,v,cycle=None,status=None):
     # Never erase already published values or confirmed berth evidence with a missing field.
     journal[key]={**previous,**{k:x for k,x in row.items() if x is not None}}
 
+def with_vtt(row):
+    out=dict(row)
+    out['vtt_conventional_min']=delta(row.get('ATA'),row.get('etd_arrival'))
+    out['vtt_real_min']=delta(row.get('ATA'),row.get('etd_real')) if row.get('status')=='COMPLETED_QC_PASS' else None
+    return out
+
 def daily_rows(state,day):
     rows=list(state.get("trip_monitor",{}).values())
     def included(r):
         start=dt(r["D0_utc"]).astimezone(WIB).date()
         end=dt(r.get("etd_real") or r.get("last_fix_utc") or r["D0_utc"]).astimezone(WIB).date()
         return start<=day<=end
-    return sorted((r for r in rows if included(r)),key=lambda r:(dt(r["D0_utc"]),r["mmsi"]))
+    return sorted((with_vtt(r) for r in rows if included(r)),key=lambda r:(dt(r["D0_utc"]),r["mmsi"]))
 
 def active_trip_rows(state):
     """Public projection of the same stored rows used by daily monitoring."""
@@ -79,5 +85,5 @@ def active_trip_rows(state):
         key=str(m)+"|"+dt(q["D0_utc"]).isoformat()
         row=journal.get(key)
         if row and row["status"] in ("SAILING","ARRIVAL_CANDIDATE","BERTHED"):
-            result[m]=dict(row)
+            result[m]=with_vtt(row)
     return result
