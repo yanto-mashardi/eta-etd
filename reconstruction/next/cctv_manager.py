@@ -3,6 +3,7 @@ import os,json,hmac,re,time,tempfile,threading,logging
 from pathlib import Path
 from datetime import datetime,timezone
 from urllib.request import Request,urlopen
+from urllib.parse import urlencode
 from urllib.error import HTTPError,URLError
 from fastapi import APIRouter,Header,HTTPException,Response
 from pydantic import BaseModel,Field
@@ -42,6 +43,22 @@ def view(port,cfg,meta):
     u=publisher(cfg,port);m=meta.get(port,{})
     p=relay("/v3/paths/get/"+port) or {}
     return {"port":port,"device":m.get("device","CCTV "+port.title()),"kind":m.get("kind","CCTV"),"enabled":bool(u),"username":u["user"] if u else m.get("username",port+"_pub"),"ready":bool(p.get("ready")),"ready_time":p.get("readyTime"),"tracks":p.get("tracks",[]),"bytes_received":p.get("bytesReceived"),"readers":len(p.get("readers") or []),"rtmp_url":"rtmp://"+HOST+":1935/"+port,"rtsp_url":"rtsp://"+HOST+":8554/"+port,"updated_at":m.get("updated_at")}
+def connection_fields(port,user,password):
+    if port not in PORTS:raise ValueError("Unknown port")
+    server="rtmp://"+HOST+":1935"
+    key=port+"?"+urlencode({"user":user,"pass":password})
+    return {"url":server+"/"+key,"server":server,"stream_key":key,"rtsp_url":"rtsp://"+HOST+":8554/"+port}
+
+@router.post("/{port}/connection")
+def connection(port:str,response:Response,authorization:str=Header(default="")):
+    admin(authorization)
+    response.headers["Cache-Control"]="no-store"
+    if port not in PORTS:raise HTTPException(404,"Unknown port")
+    with LOCK:
+        u=publisher(read(CONFIG),port)
+        if not u:raise HTTPException(409,"Publisher disabled")
+        return connection_fields(port,u["user"],u["pass"])
+
 class Change(BaseModel):
     device:str=Field(min_length=1,max_length=100)
     kind:str=Field(pattern="^(Larix|OBS|CCTV)$")
@@ -70,7 +87,7 @@ def change(port:str,body:Change,response:Response,authorization:str=Header(defau
         if body.enabled and not password:raise HTTPException(422,"Set a new publisher password")
         updated=dict(cfg)
         updated["authInternalUsers"]=users+([{"user":body.username,"pass":password,"permissions":[{"action":"publish","path":port}]}] if body.enabled else [])
-        changed=updated!=cfg
+        changed=(bool(old)!=body.enabled or (body.enabled and (old.get("user")!=body.username or old.get("pass")!=password)))
         if changed:
             # Disconnect only the previous RTMP publisher before changing access.
             p=relay("/v3/paths/get/"+port) or {}
