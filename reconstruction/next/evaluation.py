@@ -91,26 +91,40 @@ def active_trip_rows(state):
             result[m]=with_vtt(row)
     return result
 
-def departure_board(rows,active,now):
-    """Project the Inspection journal; never run inference or invent actuals.
-    Actual red if later than either available, prospectively published estimate.
+def operational_boards(rows,active,states):
+    """One active voyage per vessel. History remains exclusively in Inspection.
+    D0 is observed departure; matching preceding D1 supplies comparison errors.
+    A is observed arrival, not a new prediction.
     """
-    today=now.astimezone(WIB).date()
-    result=[]
+    previous={}
     for r in rows:
-        real=r.get("etd_real")
-        if real and r.get("status")=="COMPLETED_QC_PASS":
-            if dt(real).astimezone(WIB).date()!=today:continue
-            errors=[r[k] for k in ("early_error_min","arrival_error_min") if r.get(k) is not None]
-            color="late" if any(e<0 for e in errors) else "actual" if errors else "unknown"
-            result.append(dict(r,board_time=real,board_kind="REAL",board_color=color,board_status="BERANGKAT"))
-            continue
-        current=active.get(str(r["mmsi"]))
-        if not current or current["trip_id"]!=r["trip_id"]:continue
-        if r.get("status")=="BERTHED" and r.get("ATA"):
-            value=r.get("etd_arrival")
-            result.append(dict(r,board_time=value,board_kind="ESTIMATE",board_color="berthed",board_status="SANDAR"))
-        elif r.get("status") in ("SAILING","ARRIVAL_CANDIDATE"):
-            result.append(dict(r,board_time=r.get("etd_early"),board_kind="ESTIMATE",board_color="incoming",board_status="MENUJU TERMINAL"))
-    # Show active information first; completed departures newest first.
-    return sorted(result,key=lambda r:(r["board_kind"]=="REAL", -dt(r["board_time"]).timestamp() if r["board_kind"]=="REAL" else dt(r["board_time"]).timestamp() if r["board_time"] else float("inf")))
+        if r.get("etd_real") and r.get("status")=="COMPLETED_QC_PASS":
+            previous[(str(r["mmsi"]),r["destination_port"],dt(r["etd_real"]))]=r
+    arrivals=[];departures=[]
+    def item(r,port,other,value,kind,color,status,berth=None,quality="FRESH"):
+        return dict(mmsi=r["mmsi"],shipname=r.get("shipname") or r["mmsi"],trip_id=r["trip_id"],board_port=port,other_port=other,board_time=value,board_kind=kind,board_color=color,board_status=status,board_berth=berth,ais_quality=quality)
+    for m,r in active.items():
+        state=states.get(m,{})
+        stale=state.get("status")=="STALE"
+        quality="STALE" if stale else "FRESH"
+        origin,dest=r["origin_port"],r["destination_port"]
+        if r.get("ATA"):
+            ata=r["ATA"];eta=r.get("eta_corrected")
+            published=r.get("early_published_at")
+            comparable=eta and published and dt(published)<dt(ata)
+            color=("late" if dt(ata)>dt(eta) else "actual") if comparable else "unknown"
+            berth=r.get("departure_berth") or state.get("berth") or state.get("nearest_berth")
+            arrivals.append(item(r,dest,origin,ata,"REAL",color,"TIBA",berth,quality))
+            departures.append(item(r,dest,origin,r.get("etd_arrival"),"ESTIMATE","berthed","SANDAR",berth,quality))
+        elif r["status"] in ("SAILING","ARRIVAL_CANDIDATE"):
+            prior=previous.get((str(m),origin,dt(r["D0_utc"])),{})
+            errors=[prior[k] for k in ("early_error_min","arrival_error_min") if prior.get(k) is not None]
+            # Compare exact timestamps for valid published estimates; avoids rounded zero at subsecond delays.
+            comparisons=[dt(r["D0_utc"])>dt(prior[k]) for k,p in (("etd_early","early_published_at"),("etd_arrival","arrival_published_at")) if prior.get(k) and prior.get(p) and dt(prior[p])<dt(r["D0_utc"])]
+            color="late" if any(comparisons) else "actual" if comparisons else "late" if any(e<0 for e in errors) else "actual" if errors else "unknown"
+            departures.append(item(r,origin,dest,r["D0_utc"],"REAL",color,"BERANGKAT",prior.get("departure_berth"),quality))
+            arrivals.append(item(r,dest,origin,r.get("eta_corrected"),"ESTIMATE","incoming","BERLAYAR",quality=quality))
+            departures.append(item(r,dest,origin,r.get("etd_early"),"ESTIMATE","incoming","MENUJU TERMINAL",quality=quality))
+    def sort_key(r):
+        return (r["board_port"],r["board_kind"]=="REAL",dt(r["board_time"]).timestamp() if r["board_time"] else float("inf"),str(r["mmsi"]))
+    return {"arrivals":sorted(arrivals,key=sort_key),"departures":sorted(departures,key=sort_key)}

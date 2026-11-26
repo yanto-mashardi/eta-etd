@@ -1,16 +1,27 @@
 import unittest
-from datetime import datetime,timezone
-from evaluation import departure_board
+from evaluation import operational_boards
 class DepartureBoardTest(unittest.TestCase):
- def test_phases(self):
-  now=datetime(2026,11,26,10,tzinfo=timezone.utc)
-  r=dict(mmsi="525003298",trip_id="x",destination_port="PAKNING",status="SAILING",etd_early="2026-11-26T09:00:00+00:00")
-  self.assertEqual(departure_board([r],{r["mmsi"]:r},now)[0]["board_color"],"incoming")
-  r.update(status="BERTHED",ATA="2026-11-26T08:30:00+00:00",etd_arrival="2026-11-26T09:30:00+00:00")
-  self.assertEqual(departure_board([r],{r["mmsi"]:r},now)[0]["board_time"],r["etd_arrival"])
-  r.update(status="COMPLETED_QC_PASS",etd_real="2026-11-26T09:15:00+00:00",early_error_min=-15,arrival_error_min=15)
-  self.assertEqual(departure_board([r],{},now)[0]["board_color"],"late")
-  r["early_error_min"]=0
-  self.assertEqual(departure_board([r],{},now)[0]["board_color"],"actual")
-  r["early_error_min"]=r["arrival_error_min"]=None
-  self.assertEqual(departure_board([r],{},now)[0]["board_color"],"unknown")
+ def test_round_trip(self):
+  def t(h,m):return f"2026-11-26T{h:02d}:{m:02d}:00+00:00"
+  m="525003298"
+  r=dict(mmsi=m,trip_id="out",origin_port="BENGKALIS",destination_port="PAKNING",D0_utc=t(1,0),status="SAILING",eta_corrected=t(1,30),etd_early=t(2,15),early_published_at=t(1,1))
+  prev=dict(mmsi=m,trip_id="prev",destination_port="BENGKALIS",status="COMPLETED_QC_PASS",etd_real=t(1,0),etd_early=t(1,2),early_published_at=t(0,0),departure_berth="BKL-01")
+  def boards():return operational_boards([prev,r],{m:r},{m:{"status":r["status"]}})
+  b=boards();self.assertEqual(len(b["departures"]),2)
+  self.assertEqual([(x["board_port"],x["board_color"]) for x in b["departures"]],[("BENGKALIS","actual"),("PAKNING","incoming")])
+  self.assertEqual(b["arrivals"][0]["board_color"],"incoming")
+  r.update(status="BERTHED",ATA=t(1,35),etd_arrival=t(2,0),arrival_published_at=t(1,40))
+  b=boards();self.assertEqual(len(b["departures"]),1);self.assertEqual(b["departures"][0]["board_port"],"PAKNING");self.assertEqual(b["departures"][0]["board_color"],"berthed");self.assertEqual(b["arrivals"][0]["board_color"],"late")
+  r.update(status="COMPLETED_QC_PASS",etd_real=t(2,5),early_error_min=10,arrival_error_min=-5)
+  back=dict(mmsi=m,trip_id="back",origin_port="PAKNING",destination_port="BENGKALIS",D0_utc=t(2,5),status="SAILING",eta_corrected=t(2,50),etd_early=t(3,30),early_published_at=t(2,6))
+  b=operational_boards([prev,r,back],{m:back},{m:{"status":"SAILING"}})
+  self.assertEqual(len(b["arrivals"]),1);self.assertEqual(b["arrivals"][0]["board_port"],"BENGKALIS")
+  self.assertEqual(next(x for x in b["departures"] if x["board_port"]=="PAKNING")["board_color"],"late")
+  back.update(status="BERTHED",ATA=t(2,45),etd_arrival=t(3,25))
+  b=operational_boards([prev,r,back],{m:back},{m:{"status":"BERTHED"}})
+  self.assertEqual(len(b["departures"]),1);self.assertEqual(b["departures"][0]["board_port"],"BENGKALIS");self.assertEqual(b["arrivals"][0]["board_color"],"actual")
+ def test_no_prior_and_stale(self):
+  r=dict(mmsi="x",trip_id="x",origin_port="PAKNING",destination_port="BENGKALIS",D0_utc="2026-11-26T01:00:00+00:00",status="SAILING")
+  b=operational_boards([r],{"x":r},{"x":{"status":"STALE"}})
+  self.assertEqual(next(x for x in b["departures"] if x["board_kind"]=="REAL")["board_color"],"unknown")
+  self.assertTrue(all(x["ais_quality"]=="STALE" for x in b["departures"]))
