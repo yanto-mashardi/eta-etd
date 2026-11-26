@@ -51,23 +51,38 @@ tbody tr:nth-child(odd){background:#eaf7ff}.status{background:#cfeaff;color:#084
 .boards .foot{font-size:15px;line-height:1.3;color:#315c78}
 @media(min-width:1101px) and (max-height:760px){.boards .head b{font-size:23px}.boards .head small{font-size:16px}.boards th{padding:8px 7px}.boards td{padding:8px 7px}.boards .empty{padding:12px 9px}}
 @media(max-width:650px){.boards .head b{font-size:22px}.boards th{font-size:14px}.boards td{font-size:16px}.boards td strong{font-size:18px}.boards td.time{font-size:26px}.boards .status{font-size:13px}}
-.boards td.time.incoming{color:#006ac9}.boards td.time.berthed{color:#087a39}.boards td.time.actual{color:#111}.boards td.time.late{color:#c51b28}.boards td.time.unknown{color:#64748b}.boards td.time{white-space:nowrap}.boards td.time .estimate-label{color:#526e80;font-weight:400;font-size:13px;line-height:1.2}</style></head><body><nav><b>Bengkalis–Pakning Ferry</b><a href="/bengkalis">Bengkalis</a><a href="/pakning">Pakning</a><a href="/inspection">Inspection</a><button id="fullscreen" type="button" aria-label="Layar penuh">Layar penuh</button></nav><main><div class="eyebrow">Ferry Information Board</div><h1 id="title"></h1><p class="sub" id="intro"></p><div id="notice" class="warn">Menunggu data AIS...</div><div class="layout"><aside class="kpis" id="kpis"></aside><section class="card mapcard"><div class="head"><div><b>Peta Kapal Realtime</b><small id="mapStatus">Memuat CARTO Voyager</small></div></div><div class="maparea"><div id="map">Memuat peta...</div></div><div class="berths" id="berths"></div></section><div class="boards"><section class="card"><div class="head"><div><b id="arrivalTitle"></b><small>Kapal menuju terminal atau sudah tiba</small></div></div><div class="scroll"><table><thead><tr><th>Kapal</th><th>Dari</th><th>ETA</th><th>Kecepatan</th><th>Jarak</th><th>Status kedatangan</th></tr></thead><tbody id="arrivals"></tbody></table></div></section><section class="card"><div class="head"><div><b id="departureTitle"></b><small>Estimasi dan keberangkatan aktual pada siklus aktif</small></div></div><div class="scroll"><table><thead><tr><th>Kapal</th><th>Tujuan</th><th>ETD</th><th>Dermaga</th><th>Status</th></tr></thead><tbody id="departures"></tbody></table></div></section><div class="foot">Jam ETA/ETD: biru = estimasi awal; hijau = estimasi saat sandar; hitam = aktual tidak terlambat; merah = aktual terlambat; abu-abu = tanpa pembanding. (Estimasi) = waktu prediksi.</div></div></div></main><script>
+.boards td.time.incoming{color:#006ac9}.boards td.time.berthed{color:#087a39}.boards td.time.actual{color:#111}.boards td.time.late{color:#c51b28}.boards td.time.unknown{color:#64748b}.boards td.time{white-space:nowrap}.boards td.time .estimate-label{color:#526e80;font-weight:400;font-size:13px;line-height:1.2}/* Exact-position markers and a local terminal inset. Only the browser draws these maps. */
+#terminalInset{position:absolute;left:8px;bottom:8px;width:42%;height:39%;min-height:132px;max-width:260px;max-height:245px;border:2px solid #427c9e;border-radius:6px;overflow:hidden;background:#c7dee2;z-index:2;box-shadow:0 2px 8px #123b4f35}
+#insetMap{position:absolute;inset:0}
+.inset-caption{position:absolute;top:3px;left:3px;z-index:2;background:#fffffff0;border:1px solid #86a7ba;border-radius:3px;padding:3px 5px;font-size:10px;font-weight:750;color:#16455e;pointer-events:none}
+#terminalInset .maplibregl-ctrl-scale{font-size:9px;padding:0 3px;line-height:12px}
+#terminalInset .maplibregl-ctrl-bottom-left .maplibregl-ctrl{margin:0 0 3px 3px}
+#terminalInset .maplibregl-ctrl-bottom-right .maplibregl-ctrl{margin:0 3px 3px 0}
+.vessel-marker{width:26px;height:26px}.vessel-marker .shipicon{width:26px;height:26px;font-size:16px;border-width:1.5px}
+.vessel-marker .fix-dot{position:absolute;left:50%;top:50%;width:4px;height:4px;transform:translate(-50%,-50%);border-radius:50%;background:#075a93;border:1px solid white;pointer-events:none}
+.vessel-marker .vessel-label{font-size:11px;padding:2px 4px;bottom:30px;pointer-events:none}
+.inset-vessel{width:17px;height:17px}.inset-vessel .shipicon{width:17px;height:17px;font-size:11px;border-width:1px}.inset-vessel .vessel-label{font-size:9px;padding:1px 3px;bottom:21px}
+.inset-berth{width:8px;height:8px;border-width:1px}.inset-berth-label{position:absolute;left:50%;top:10px;transform:translateX(-50%);white-space:nowrap;background:#ffffffec;padding:1px 3px;font-size:9px;border-radius:2px;color:#24536c;pointer-events:none}
+@media(max-width:650px){#terminalInset{width:46%;height:42%}}
+</style></head><body><nav><b>Bengkalis–Pakning Ferry</b><a href="/bengkalis">Bengkalis</a><a href="/pakning">Pakning</a><a href="/inspection">Inspection</a><button id="fullscreen" type="button" aria-label="Layar penuh">Layar penuh</button></nav><main><div class="eyebrow">Ferry Information Board</div><h1 id="title"></h1><p class="sub" id="intro"></p><div id="notice" class="warn">Menunggu data AIS...</div><div class="layout"><aside class="kpis" id="kpis"></aside><section class="card mapcard"><div class="head"><div><b>Peta Kapal Realtime</b><small id="mapStatus">Memuat CARTO Voyager</small></div></div><div class="maparea"><div id="map">Memuat peta...</div><div id="terminalInset" aria-label="Peta detail terminal"><div id="insetMap"></div><div id="insetCaption" class="inset-caption"></div></div></div><div class="berths" id="berths"></div></section><div class="boards"><section class="card"><div class="head"><div><b id="arrivalTitle"></b><small>Kapal menuju terminal atau sudah tiba</small></div></div><div class="scroll"><table><thead><tr><th>Kapal</th><th>Dari</th><th>ETA</th><th>Kecepatan</th><th>Jarak</th><th>Status kedatangan</th></tr></thead><tbody id="arrivals"></tbody></table></div></section><section class="card"><div class="head"><div><b id="departureTitle"></b><small>Estimasi dan keberangkatan aktual pada siklus aktif</small></div></div><div class="scroll"><table><thead><tr><th>Kapal</th><th>Tujuan</th><th>ETD</th><th>Dermaga</th><th>Status</th></tr></thead><tbody id="departures"></tbody></table></div></section><div class="foot">Jam ETA/ETD: biru = estimasi awal; hijau = estimasi saat sandar; hitam = aktual tidak terlambat; merah = aktual terlambat; abu-abu = tanpa pembanding. (Estimasi) = waktu prediksi.</div></div></div></main><script>
 const port=location.pathname==='/pakning'?'PAKNING':'BENGKALIS',other=port==='BENGKALIS'?'PAKNING':'BENGKALIS',name=port==='BENGKALIS'?'Bengkalis':'Pakning', $=id=>document.getElementById(id), el=(tag,t,cl)=>{let e=document.createElement(tag);e.textContent=t??'—';if(cl)e.className=cl;return e},tm=v=>v&&Number.isFinite(Date.parse(v))?new Date(v).toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'}):'—',num=(v,d)=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))?Number(v).toFixed(d):'—';
 $('title').textContent=name+' Ferry Terminal';$('intro').textContent='Informasi terminal ini: kedatangan ke '+name+', keberangkatan dari terminal, posisi kapal, dan antrean kendaraan.';$('arrivalTitle').textContent='Kedatangan ke '+name;$('departureTitle').textContent='Keberangkatan dari '+name;document.querySelector('nav a[href="/'+port.toLowerCase()+'"]').classList.add('active');
-$('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen()}catch(e){$('notice').textContent='Layar penuh tidak tersedia: '+e.message}});document.addEventListener('fullscreenchange',()=>{$('fullscreen').textContent=document.fullscreenElement?'Keluar layar penuh':'Layar penuh';if(map)map.resize()});
+$('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen()}catch(e){$('notice').textContent='Layar penuh tidak tersedia: '+e.message}});document.addEventListener('fullscreenchange',()=>{$('fullscreen').textContent=document.fullscreenElement?'Keluar layar penuh':'Layar penuh';if(map)map.resize();if(insetMap)insetMap.resize()});
 const berths=[['BKL-01','BENGKALIS',1.449921,102.136747],['BKL-02','BENGKALIS',1.449491,102.138242],['PKN-01','PAKNING',1.380001,102.148561],['PKN-02','PAKNING',1.37879,102.149836]];
-let map=null,markers=[],lastRows=[],lastValid=()=>false;
+let map=null,insetMap=null,markers=[],insetMarkers=[],lastRows=[],lastValid=()=>false;const styleUrl='https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';$('insetCaption').textContent='Detail Dermaga '+name;
 function initMap(){
  if(!window.maplibregl){$('map').textContent='MapLibre JS gagal dimuat dari VPS';return}
  try{
  $('map').replaceChildren();
- map=new maplibregl.Map({container:$('map'),style:'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',center:[102.1435,1.4145],zoom:11.55,attributionControl:false});
+ map=new maplibregl.Map({container:$('map'),style:styleUrl,center:[102.1435,1.4145],zoom:11.55,attributionControl:false});
  map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
  map.addControl(new maplibregl.AttributionControl({compact:true}),'bottom-right');
  map.on('load',()=>{$('mapStatus').textContent='CARTO Voyager · MapLibre GL';map.resize();map.fitBounds([[102.136747,1.37879],[102.149836,1.449921]],{padding:{top:48,bottom:32,left:85,right:85},duration:0,maxZoom:12.5});drawMarkers(lastRows,lastValid)});
  map.on('error',e=>{$('mapStatus').textContent='Peta: '+(e.error?.message||'resource gagal dimuat')});
- new ResizeObserver(()=>{if(map)map.resize()}).observe($('map'));
+ new ResizeObserver(()=>{if(map)map.resize();if(insetMap)insetMap.resize()}).observe($('map'));
+ map.on('move',()=>arrangeLabels(map,markers));
  drawMarkers(lastRows,lastValid);
+ initInset();
  }catch(e){map=null;$('map').textContent='MapLibre: '+e.message}
 }
 function kpi(icon,label,value,note){const a=el('div','','kpi'),b=el('div',icon,'symbol'),c=el('div','');c.append(el('label',label),el('strong',value),el('small',note));a.append(b,c);return a}
@@ -93,22 +108,67 @@ lastRows=rows;lastValid=valid;
 
 drawMarkers(rows,valid);
 }
-function drawMarkers(rows,valid){
- if(!map)return;
- markers.forEach(m=>m.remove());markers=[];
+function initInset(){
+ const local=berths.filter(b=>b[1]===port);
+ const xs=local.map(b=>b[3]),ys=local.map(b=>b[2]);
+ const bounds=[[Math.min(...xs)-.0055,Math.min(...ys)-.0055],[Math.max(...xs)+.0055,Math.max(...ys)+.0055]];
+ try{
+ insetMap=new maplibregl.Map({container:$('insetMap'),style:styleUrl,center:[(bounds[0][0]+bounds[1][0])/2,(bounds[0][1]+bounds[1][1])/2],zoom:14,interactive:false,attributionControl:false});
+ insetMap.addControl(new maplibregl.ScaleControl({maxWidth:56,unit:'metric'}),'bottom-left');
+ insetMap.addControl(new maplibregl.AttributionControl({compact:true}),'bottom-right');
+ const fit=()=>{if(insetMap)insetMap.fitBounds(bounds,{padding:{top:24,bottom:17,left:10,right:10},duration:0,maxZoom:16})};
+ insetMap.on('load',()=>{fit();drawMarkers(lastRows,lastValid)});
+ insetMap.on('move',()=>arrangeLabels(insetMap,insetMarkers));
+ insetMap.on('resize',fit);
+ }catch(e){$('insetCaption').textContent='Detail dermaga tidak tersedia';console.warn(e)}
+}
+function overlaps(a,b){return a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top}
+function arrangeLabels(target,list){
+ if(!target||!list.length)return;
+ const frame=target.getContainer().getBoundingClientRect(),inset=target===insetMap;
+ const bounds={left:frame.left+3,right:frame.right-3,top:frame.top+(inset?22:3),bottom:frame.bottom-3};
+ const inside=r=>r.left>=bounds.left&&r.right<=bounds.right&&r.top>=bounds.top&&r.bottom<=bounds.bottom;
+ const used=list.map(m=>m.getElement().getBoundingClientRect());
+ if(!inset){const box=$('terminalInset').getBoundingClientRect();used.push(box)}
+ for(const m of list){
+ const n=m.getElement(),label=n.querySelector('.vessel-label');if(!label)continue;
+ label.style.display='block';
+ let placed=false;
+ for(const pos of ['top','bottom','right','left']){
+ label.style.top='auto';label.style.bottom='auto';label.style.left='auto';label.style.right='auto';label.style.transform='none';
+ if(pos==='top'||pos==='bottom'){label.style.left='50%';label.style.transform='translateX(-50%)';label.style[pos==='top'?'bottom':'top']='calc(100% + 4px)'}
+ else{label.style.top='50%';label.style.transform='translateY(-50%)';label.style[pos==='right'?'left':'right']='calc(100% + 4px)'}
+ const r=label.getBoundingClientRect();if(inside(r)&&!used.some(b=>overlaps(r,b))){used.push(r);placed=true;break}
+ }
+ if(!placed)label.style.display='none'; // exact marker stays visible; click for full name
+ }
+}
+function drawOn(target,rows,valid,isInset){
+ if(!target)return [];
+ const list=[];
  for(const [label,p,lat,lon] of berths){
- const node=el('div','','berth-marker');
- markers.push(new maplibregl.Marker({element:node}).setLngLat([lon,lat]).setPopup(new maplibregl.Popup({offset:12}).setText(label)).addTo(map));
+ if(isInset&&p!==port)continue;
+ const node=el('div','','berth-marker'+(isInset?' inset-berth':''));
+ if(isInset)node.append(el('span','D'+label.slice(-1),'inset-berth-label'));
+ list.push(new maplibregl.Marker({element:node}).setLngLat([lon,lat]).setPopup(new maplibregl.Popup({offset:12}).setText(label)).addTo(target));
  }
  for(const v of rows){
  const lat=Number(v.latitude),lon=Number(v.longitude);
  if(!v.latitude||!v.longitude||!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)continue;
- const node=el('div','','vessel-marker');
- const label=el('span',(v.shipname||v.mmsi)+(valid(v)?'':' · '+(v.live_ais_quality||'QC')),'vessel-label');
- const icon=el('div','⛴','shipicon'+(valid(v)?'':' stale'));node.append(label,icon);
- const popup=new maplibregl.Popup({offset:25}).setText((v.shipname||v.mmsi)+' | SOG '+num(v.sog,1)+' kn | AIS '+tm(v.ais_update_at)+' WIB');
- markers.push(new maplibregl.Marker({element:node,anchor:'center'}).setLngLat([lon,lat]).setPopup(popup).addTo(map));
+ if(isInset&&!target.getBounds().contains([lon,lat]))continue;
+ const node=el('div','','vessel-marker'+(isInset?' inset-vessel':''));
+ const title=(v.shipname||v.mmsi)+(valid(v)?'':' · '+(v.live_ais_quality||'QC'));
+ const label=el('span',title,'vessel-label');
+ const icon=el('div','⛴','shipicon'+(valid(v)?'':' stale'));node.append(label,icon,el('span','','fix-dot'));node.title=title;
+ const popup=new maplibregl.Popup({offset:16}).setText((v.shipname||v.mmsi)+' | SOG '+num(v.sog,1)+' kn | AIS '+tm(v.ais_update_at)+' WIB');
+ list.push(new maplibregl.Marker({element:node,anchor:'center'}).setLngLat([lon,lat]).setPopup(popup).addTo(target));
  }
+ arrangeLabels(target,list);
+ return list;
+}
+function drawMarkers(rows,valid){
+ if(map){markers.forEach(m=>m.remove());markers=drawOn(map,rows,valid,false)}
+ if(insetMap&&insetMap.loaded()){insetMarkers.forEach(m=>m.remove());insetMarkers=drawOn(insetMap,rows,valid,true)}
 }
 initMap();
 async function poll(){try{const r=await fetch('/api/status',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const data=await r.json();if(!Array.isArray(data.vessels))throw Error('Format AIS API tidak valid');render(data)}catch(e){$('notice').textContent='Koneksi API gagal: '+e.message+' — tampilan terakhir mungkin kedaluwarsa.'}finally{setTimeout(poll,5000)}}poll();
