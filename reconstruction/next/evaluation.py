@@ -90,3 +90,27 @@ def active_trip_rows(state):
         if row and row["status"] in ("SAILING","ARRIVAL_CANDIDATE","BERTHED"):
             result[m]=with_vtt(row)
     return result
+
+def departure_board(rows,active,now):
+    """Project the Inspection journal; never run inference or invent actuals.
+    Actual red if later than either available, prospectively published estimate.
+    """
+    today=now.astimezone(WIB).date()
+    result=[]
+    for r in rows:
+        real=r.get("etd_real")
+        if real and r.get("status")=="COMPLETED_QC_PASS":
+            if dt(real).astimezone(WIB).date()!=today:continue
+            errors=[r[k] for k in ("early_error_min","arrival_error_min") if r.get(k) is not None]
+            color="late" if any(e<0 for e in errors) else "actual" if errors else "unknown"
+            result.append(dict(r,board_time=real,board_kind="REAL",board_color=color,board_status="BERANGKAT"))
+            continue
+        current=active.get(str(r["mmsi"]))
+        if not current or current["trip_id"]!=r["trip_id"]:continue
+        if r.get("status")=="BERTHED" and r.get("ATA"):
+            value=r.get("etd_arrival")
+            result.append(dict(r,board_time=value,board_kind="ESTIMATE",board_color="berthed",board_status="SANDAR"))
+        elif r.get("status") in ("SAILING","ARRIVAL_CANDIDATE"):
+            result.append(dict(r,board_time=r.get("etd_early"),board_kind="ESTIMATE",board_color="incoming",board_status="MENUJU TERMINAL"))
+    # Show active information first; completed departures newest first.
+    return sorted(result,key=lambda r:(r["board_kind"]=="REAL", -dt(r["board_time"]).timestamp() if r["board_kind"]=="REAL" else dt(r["board_time"]).timestamp() if r["board_time"] else float("inf")))

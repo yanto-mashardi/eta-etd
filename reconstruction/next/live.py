@@ -8,7 +8,7 @@ import time
 from prediction_archive import prune_verified
 from trajectories import expire_cache
 from copy import deepcopy
-from evaluation import record_trip,daily_rows,active_trip_rows,WIB
+from evaluation import record_trip,daily_rows,active_trip_rows,departure_board,WIB
 from events import Tracker,read_seed,classify,atomic_json,dt
 from engine import estimate
 from stockflow import Ledger
@@ -77,5 +77,8 @@ class Live:
             return daily_rows(self.tracker.state,day)
     def snapshot(self):
         with self.lock:
-            return {"active_trip_predictions":active_trip_rows(self.tracker.state),"prediction_evaluation":daily_rows(self.tracker.state,datetime.now(WIB).date()),"vessels":self.tracker.snapshot(datetime.now(timezone.utc)),"history_seed_count":self.tracker.seed_count,
+            now=datetime.now(timezone.utc)
+            active=active_trip_rows(self.tracker.state)
+            rows=daily_rows(self.tracker.state,now.astimezone(WIB).date())
+            return {"departure_board":departure_board(rows,active,now),"active_trip_predictions":active,"prediction_evaluation":rows,"vessels":self.tracker.snapshot(datetime.now(timezone.utc)),"history_seed_count":self.tracker.seed_count,
                     "completed_live_cycles":len(self.tracker.state["cycles"]),"status":"STAGING_UNVALIDATED" if not self.error else "ERROR:"+self.error,"rejected_rows":self.rejected,"rejection_reasons":dict(self.rejection_reasons),"duplicate_polls":self.duplicates,"timestamp_field":self.field}
