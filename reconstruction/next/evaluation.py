@@ -1,0 +1,34 @@
+"""Frozen predictions and AIS-reconstructed actuals, per voyage."""
+from datetime import timedelta
+from events import dt,minutes
+def delta(a,b):
+    return round(minutes(a,b),3) if a and b else None
+def evaluate(m,voyage,predictions,cycle=None):
+    d=predictions.get("D0",{});a=predictions.get("A",{})
+    origin=voyage["D0_utc"]
+    # Reject mismatched predictions, including stale persisted results.
+    if d.get("issue_utc")!=origin:d={}
+    if a.get("issue_utc")!=voyage.get("A_utc"):a={}
+    base=d.get("eta_components",{}).get("baseline_min")
+    eta_base=(dt(origin)+timedelta(minutes=base)).isoformat() if base is not None else None
+    eta=d.get("eta");early=d.get("etd");conv=a.get("etd")
+    ata=voyage.get("A_utc")
+    real=cycle.get("D1_utc") if cycle else None
+    issued=d.get("published_at") if early else None
+    arrived=a.get("published_at") if conv else None
+    # Only predictions actually published before the observed target qualify.
+    early_ok=bool(real and issued and dt(issued)<dt(real))
+    conv_ok=bool(real and arrived and dt(arrived)<dt(real))
+    comparable=bool(issued and arrived and dt(issued)<=dt(arrived))
+    return {"mmsi":m,"origin_port":voyage["origin_port"],"destination_port":voyage["destination_port"],
+        "D0_utc":origin,"ATA":ata,"eta_base":eta_base,"eta_corrected":eta,
+        "eta_correction_min":delta(eta_base,eta),"etd_early":early,"etd_arrival":conv,"etd_real":real,
+        "early_error_min":delta(real,early) if early_ok else None,
+        "arrival_error_min":delta(real,conv) if conv_ok else None,
+        "early_abs_error_min":abs(delta(real,early)) if early_ok else None,
+        "arrival_abs_error_min":abs(delta(real,conv)) if conv_ok else None,
+        "early_published_at":issued,"arrival_published_at":arrived,
+        "lead_advantage_min":delta(issued,arrived) if comparable else None,
+        "lead_to_departure_min":delta(issued,real) if early_ok else None,
+        "release_early":d.get("release"),"release_arrival":a.get("release"),
+        "status":"COMPLETED_QC_PASS" if cycle else "ONGOING"}

@@ -4,6 +4,8 @@ from datetime import datetime,timezone
 from pathlib import Path
 from collections import Counter
 import logging
+from copy import deepcopy
+from evaluation import evaluate
 from events import Tracker,read_seed,classify,atomic_json,dt
 from engine import estimate
 from stockflow import Ledger
@@ -26,13 +28,21 @@ class Live:
             with self.lock:
                 previous=self.tracker.state["vessels"].get(p["mmsi"],{}).get("last")
                 if previous and dt(p["ts"])<=dt(previous["ts"]): self.duplicates+=1;continue
-                for event in self.tracker.process(p):
+                old=deepcopy(self.tracker.state["vessels"].get(p["mmsi"],{}))
+                ncycles=len(self.tracker.state["cycles"])
+                events=self.tracker.process(p)
+                for cycle in self.tracker.state["cycles"][ncycles:]:
+                    if old.get("voyage"):
+                        audit=evaluate(p["mmsi"],old["voyage"],old.get("predictions",{}),cycle)
+                        self.tracker.state.setdefault("prediction_audit",[]).append(audit)
+                for event in events:
                     if event["phase"]=="D0": self.ledger.departure(event["features"]["origin_port"],p["mmsi"],event["issue_utc"])
                     result={"status":"WAITING_MODEL_OR_HISTORY","issue_utc":event["issue_utc"],"published_at":event["published_at"],"release":self.release}
                     if self.models is not None and self.tracker.seed_count:
                         try:
                             result.update(estimate(self.models,event["issue_utc"],event["features"],event["phase"]))
                             result["status"]="PROVISIONAL_UNVALIDATED"
+                            result["published_at"]=datetime.now(timezone.utc).isoformat()
                         except (ValueError,KeyError,TypeError,RuntimeError) as e:
                             result["status"]="FEATURE_OR_MODEL_ERROR";result["error"]=str(e)[:250]
                     self.tracker.state["vessels"][p["mmsi"]]["predictions"][event["phase"]]=result
@@ -45,5 +55,6 @@ class Live:
             self.stop.wait(5)
     def snapshot(self):
         with self.lock:
-            return {"vessels":self.tracker.snapshot(datetime.now(timezone.utc)),"history_seed_count":self.tracker.seed_count,
+            active=[evaluate(m,v["voyage"],v.get("predictions",{})) for m,v in self.tracker.state["vessels"].items() if v.get("voyage") and v.get("last") and (datetime.now(timezone.utc)-dt(v["last"]["ts"])).total_seconds()<=300]
+            return {"prediction_evaluation":active+self.tracker.state.get("prediction_audit",[])[-100:],"vessels":self.tracker.snapshot(datetime.now(timezone.utc)),"history_seed_count":self.tracker.seed_count,
                     "completed_live_cycles":len(self.tracker.state["cycles"]),"status":"STAGING_UNVALIDATED" if not self.error else "ERROR:"+self.error,"rejected_rows":self.rejected,"rejection_reasons":dict(self.rejection_reasons),"duplicate_polls":self.duplicates,"timestamp_field":self.field}
