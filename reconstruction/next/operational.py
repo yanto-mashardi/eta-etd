@@ -27,7 +27,7 @@ def publish(ais_rows,ais_status,now,journal,active,states):
             v.update(status="DI AREA DERMAGA",port=p["port"],berth=p["berth"])
         else:
             v["status"]="BERGERAK" if p["sog"]>.8 else "BERHENTI DI LUAR DERMAGA"
-        same=bool(s.get("last_fix_utc") and dt(s["last_fix_utc"])==dt(p["ts"]))
+        same=bool(s.get("source_fix_utc",s.get("last_fix_utc")) and dt(s.get("source_fix_utc",s.get("last_fix_utc")))==dt(p["ts"]))
         if same and s.get("last_sog") is not None and (abs(s["last_sog"]-p["sog"])>1e-6 or abs(s.get("last_distance_nm",p["distance"])-p["distance"])>1e-6 or s.get("last_latitude") is not None and (abs(s["last_latitude"]-lat)>1e-7 or abs(s["last_longitude"]-lon)>1e-7)):
             issue("AIS_TIMESTAMP_CONFLICT")
         elif not same:
@@ -37,7 +37,7 @@ def publish(ais_rows,ais_status,now,journal,active,states):
             other=next(x for x in PORTS if x!=port)
             result["departures"].append(dict(mmsi=m,shipname=raw.get("shipname") or m,trip_id=r.get("trip_id"),board_port=port,other_port=other,board_time=None,board_kind="ESTIMATE",board_color="unknown",board_status=status,board_berth=v["berth"] if v["port"]==port else None,ais_quality="FRESH"))
         if p["candidate"]:
-            if r.get("ATA") and r.get("destination_port")==p["port"] and s.get("status")=="BERTHED" and v["sync"]!="AIS_TIMESTAMP_CONFLICT":
+            if r.get("ATA") and r.get("destination_port")==p["port"] and s.get("status")=="BERTHED" :
                 v["status"]="SANDAR"
                 for x in rows["departures"]:x["board_berth"]=v["berth"]
             elif r and not r.get("ATA") and r.get("destination_port")==p["port"] and v["sync"]!="AIS_TIMESTAMP_CONFLICT":
@@ -57,9 +57,17 @@ def publish(ais_rows,ais_status,now,journal,active,states):
         elif not r:
             issue("NO_ACTIVE_TRIP")
             continue
-        elif v["sync"]=="AIS_TIMESTAMP_CONFLICT":
-            continue
         elif p["sog"]<=.8:
             for x in rows["arrivals"]:x["board_status"]=v["status"]
+            for x in rows["departures"]:
+                if x["board_kind"]=="ESTIMATE":x["board_status"]=v["status"]
+                else:x["board_status"]="BERANGKAT · BERHENTI"
+            # Stationary outside a berth cannot establish destination arrival.
+            # If still near the recorded origin, suspend destination estimates.
+            if p["port"]==r["origin_port"] and p["distance"]<=.5:
+                issue("STOPPED_NEAR_ORIGIN")
+                rows["arrivals"]=[]
+                rows["departures"]=[x for x in rows["departures"] if x["board_port"]==r["origin_port"]]
+                for x in rows["departures"]:x["board_status"]=v["status"]
         for k in rows:result[k].extend(rows[k])
     return result

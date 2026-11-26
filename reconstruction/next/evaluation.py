@@ -61,6 +61,8 @@ def record_trip(state,m,v,cycle=None,status=None,observed_exit=None):
     row["event_quality"]="QC_PASS" if cycle else "QC_FAIL" if observed_exit else "PENDING"
     row["event_qc_flags"]="|".join(q.get("qc_flags",[]))
     row["publication_protocol"]=q.get("publication_protocol","LEGACY_CONFIRMATION")
+    row["last_source_fix_utc"]=last.get("source_fix_utc",last.get("ts"))
+    row["last_clock_basis"]=last.get("clock_basis","AIS_UPDATE")
     row["status"]=status or ("COMPLETED_QC_PASS" if cycle else v.get("status","ONGOING"))
     # Never erase already published values or confirmed berth evidence with a missing field.
     journal[key]={**previous,**{k:x for k,x in row.items() if x is not None}}

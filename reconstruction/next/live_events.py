@@ -31,6 +31,8 @@ class OperationalTracker(Tracker):
                 flags=q.setdefault("qc_flags",[])
                 if reason not in flags:flags.append(reason)
         if gap:flag("AIS_GAP")
+        proxy=p.get("clock_basis")=="PROVIDER_OBSERVATION"
+        if proxy:flag("PROVIDER_OBSERVATION_CLOCK")
         def emit(phase,origin,dest):
             events.append(dict(phase=phase,issue_utc=p["ts"],published_at=p["received"],features=features(self.history,p,origin,dest)))
         if p["candidate"]:
@@ -42,6 +44,7 @@ class OperationalTracker(Tracker):
                 s=dict(port=p["port"],first=p,last=p,n=0,votes={},bracket=prev["ts"] if prev and not prev["candidate"] and not gap else None,confirmed=False)
                 v["stop"]=s
             s["n"]+=1;s["last"]=p
+            if proxy:s["proxy_clock"]=True
             if not p["ambiguous"]:s["votes"][p["berth"]]=s["votes"].get(p["berth"],0)+1
             if not s["confirmed"] and s["n"]>=3 and minutes(s["first"]["ts"],p["ts"])>=4 and (not s["bracket"] or minutes(s["bracket"],s["first"]["ts"])<=10):
                 s["confirmed"]=True
@@ -63,11 +66,13 @@ class OperationalTracker(Tracker):
                 v.update(stop=None,voyage=None,status="AIS_GAP",predictions={})
             else:
                 origin_flags=[]
+                if proxy or s.get("proxy_clock"):origin_flags.append("PROVIDER_OBSERVATION_CLOCK")
                 if not s["confirmed"]:origin_flags.append("ORIGIN_STOP_UNCONFIRMED")
                 if not s["bracket"]:origin_flags.append("ORIGIN_BRACKET_MISSING")
                 if minutes(s["last"]["ts"],p["ts"])>10:origin_flags.append("DEPARTURE_BRACKET_GAP")
                 if q and q.get("A_utc") and q["destination_port"]==origin:
                     if not s["confirmed"]:flag("ARRIVAL_STOP_UNCONFIRMED")
+                    if s.get("proxy_clock"):flag("PROVIDER_OBSERVATION_CLOCK")
                     if minutes(s["last"]["ts"],p["ts"])>10:flag("DEPARTURE_BRACKET_GAP")
                     v["operational_exit"]={"trip_id":p["mmsi"]+"|"+dt(q["D0_utc"]).isoformat(),"D1_utc":p["ts"],"qc_flags":list(q.get("qc_flags",[]))}
                     try:

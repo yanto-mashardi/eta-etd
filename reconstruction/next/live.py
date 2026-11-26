@@ -11,6 +11,7 @@ from copy import deepcopy
 from evaluation import record_trip,daily_rows,active_trip_rows,WIB
 from operational import publish
 from live_events import OperationalTracker
+from observation_clock import resolve
 from events import Tracker,read_seed,classify,atomic_json,dt
 from engine import estimate
 from stockflow import Ledger
@@ -37,7 +38,8 @@ class Live:
             except (ValueError,KeyError,TypeError) as e: self.rejected+=1;self.rejection_reasons[str(e)[:120]]+=1;continue
             with self.lock:
                 previous=self.tracker.state["vessels"].get(p["mmsi"],{}).get("last")
-                if previous and dt(p["ts"])<=dt(previous["ts"]): self.duplicates+=1;continue
+                p=resolve(p,row,previous,now)
+                if p is None:self.duplicates+=1;continue
                 old=deepcopy(self.tracker.state["vessels"].get(p["mmsi"],{}))
                 ncycles=len(self.tracker.state["cycles"])
                 events=self.tracker.process(p)
