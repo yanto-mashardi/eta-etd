@@ -117,6 +117,7 @@ class Tracker:
                 elif q:
                     v["voyage"]=None;v["predictions"]={}
             elif not s["confirmed"]: v["status"]="ARRIVAL_CANDIDATE"
+            elif self.require_moving_exit and v["status"]=="DEPARTURE_PENDING": v["status"]="BERTHED"
         else:
             if s:
                 if self.require_moving_exit and s["confirmed"] and p["sog"]<=.8:

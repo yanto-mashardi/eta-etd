@@ -33,3 +33,11 @@ class PublicationTests(unittest.TestCase):
   q=fix(8);q["sog"]=0
   self.assertEqual(tr.process(q),[])
   self.assertEqual(tr.process(fix(9))[0]["phase"],"D0")
+
+ def test_stationary_return_restores_berth(self):
+  tr=Tracker(require_moving_exit=True)
+  for n,p in [(0,None),(2,"BENGKALIS"),(4,"BENGKALIS"),(6,"BENGKALIS")]:tr.process(fix(n,p))
+  q=fix(8);q["sog"]=0
+  self.assertEqual(tr.process(q),[])
+  self.assertEqual(tr.process(fix(9,"BENGKALIS")),[])
+  self.assertEqual(tr.state["vessels"]["525002060"]["status"],"BERTHED")
