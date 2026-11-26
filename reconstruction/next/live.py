@@ -6,6 +6,7 @@ from collections import Counter
 import logging
 import time
 from prediction_archive import prune_verified
+from trajectories import expire_cache
 from copy import deepcopy
 from evaluation import record_trip,daily_rows,active_trip_rows,WIB
 from events import Tracker,read_seed,classify,atomic_json,dt
@@ -66,7 +67,9 @@ class Live:
         self.error=None
     def run(self):
         while not self.stop.is_set():
-            try: self.tick()
+            try:
+                expire_cache()
+                self.tick()
             except Exception as e: self.error=type(e).__name__;logging.exception("Live tick failed")
             self.stop.wait(5)
     def monitoring(self,day):

@@ -9,6 +9,13 @@ WIB=ZoneInfo("Asia/Jakarta")
 MAX_GAP=10
 _lock=threading.Lock()
 _cache={}
+CACHE_TTL=60
+CACHE_MAX_POINTS=10000
+def expire_cache():
+    if not _lock.acquire(blocking=False):return
+    try:
+        if any(time.monotonic()-entry[0]>=CACHE_TTL for entry in _cache.values()):_cache.clear()
+    finally:_lock.release()
 def messages(payload):
     if isinstance(payload,list):return payload
     if isinstance(payload,dict):
@@ -103,7 +110,8 @@ def daily(ais,day):
     key=(str(ais),day.isoformat())
     with _lock:
         now=time.monotonic()
-        if key in _cache and now-_cache[key][0]<60:return _cache[key][1]
+        if key in _cache and now-_cache[key][0]<CACHE_TTL:return _cache[key][1]
+        _cache.clear()
         groups=defaultdict(dict);conflicts=set();diagnostics=defaultdict(Counter);seen_names={}
         for r,rx in records(ais,day):
             m=str(r.get('mmsi',r.get('immsi',''))).strip()
@@ -126,5 +134,5 @@ def daily(ais,day):
             count+=len(pts);segments=split_trips(pts);trips.extend(segments)
             vessel_counts.append({"mmsi":m,"shipname":pts[-1]["shipname"] if pts else seen_names.get(m,m),"accepted_points":len(pts),"conflicts":sum(1 for k in conflicts if k[0]==m),"segments":len(segments),"diagnostics":dict(diagnostics[m])})
         result={"date":day.isoformat(),"timezone":"Asia/Jakarta","timestamp_basis":"provider_timestamp","point_count":count,"vessel_counts":vessel_counts,"conflicting_fixes_excluded":len(conflicts),"trips":trips,"status":"AVAILABLE" if count else "NO_LOCAL_AIS","generated_at":datetime.now(timezone.utc).isoformat()}
-        _cache.clear();_cache[key]=(now,result)
+        if count<=CACHE_MAX_POINTS:_cache[key]=(time.monotonic(),result)
         return result

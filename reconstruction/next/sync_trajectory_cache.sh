@@ -7,6 +7,10 @@ CACHE="$ROOT/data/trajectory_cache"
 install -d -o root -g bima2next -m 0750 "$CACHE"
 exec 9>"$ROOT/.trajectory-sync.lock"
 flock -n 9 || exit 0
+# Remove abandoned downloads only while holding the exclusive sync lock.
+find "$CACHE" -maxdepth 1 -type f -name '.download.*' -delete
+tmp=''
+trap 'if [[ -n "$tmp" ]]; then rm -f -- "$tmp"; fi' EXIT
 for i in $(seq 1 7); do
  day=$(TZ=Asia/Jakarta date -d "$i days ago" +%F)
  name="AIS_RAW_$day.csv"

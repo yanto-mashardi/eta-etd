@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse
 from engine import load_release,estimate
 from live import Live
 from stockflow import Ledger
+from health import notices
 ROOT=Path(os.getenv("BIMA2_NEXT_ROOT","/opt/BIMA2_NEXT"))
 AIS=Path(os.getenv("BIMA2_AIS_CSV","/opt/JAES_SIMULASI_BIMA2/data/01_DATA_SOURCE/AIS/realtime/ais_realtime.csv"))
 app=FastAPI(title="BIMA2 Next",docs_url=None,redoc_url=None)
@@ -89,7 +90,8 @@ def status():
         except (OSError,ValueError): vehicles[port]=None
     if live:
         vehicles={p:live.ledger.snapshot(p) for p in ("bengkalis","pakning")}
-    return {"ais_status":ais_status,"ais_file_age_seconds":age,"vessels":rows,"models":{"release":release,"status":model_status,"algorithms":{r:b.get("algorithm",b.get("estimator_name")) for r,b in (models or {}).items()}},"vehicles":vehicles,"prediction_status":"STAGING_UNVALIDATED","event_engine":live.snapshot() if live else None}
+    event=live.snapshot() if live else None
+    return {"notifications":notices(ais_status,rows,model_status,event,vehicles,now),"ais_status":ais_status,"ais_file_age_seconds":age,"vessels":rows,"models":{"release":release,"status":model_status,"algorithms":{r:b.get("algorithm",b.get("estimator_name")) for r,b in (models or {}).items()}},"vehicles":vehicles,"prediction_status":"STAGING_UNVALIDATED","event_engine":event}
 
 # Offline/staging prediction helper is intentionally not exposed as a public write API.
 def predict_feature_frame(issue,features,phase):

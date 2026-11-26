@@ -24,7 +24,7 @@ def evaluate(m,voyage,predictions,cycle=None):
     comparable=bool(issued and arrived and dt(issued)<=dt(arrived))
     return {"mmsi":m,"origin_port":voyage["origin_port"],"destination_port":voyage["destination_port"],
         "trip_id":str(m)+"|"+dt(origin).isoformat(),"D0_utc":origin,"ATA":ata,"eta_base":eta_base,"eta_corrected":eta,
-        "eta_correction_min":delta(eta_base,eta),"vtt_early_min":d.get("vtt_components",{}).get("duration_min"),"etd_early":early,"etd_arrival":conv,"etd_real":real,
+        "eta_correction_min":delta(eta_base,eta),"vtt_early_base_min":d.get("vtt_components",{}).get("baseline_min"),"vtt_conventional_base_min":a.get("vtt_components",{}).get("baseline_min"),"vtt_early_min":d.get("vtt_components",{}).get("duration_min"),"etd_early":early,"etd_arrival":conv,"etd_real":real,
         "early_error_min":delta(real,early) if early_ok else None,
         "arrival_error_min":delta(real,conv) if conv_ok else None,
         "early_abs_error_min":abs(delta(real,early)) if early_ok else None,
@@ -65,6 +65,9 @@ def with_vtt(row):
     out=dict(row)
     out['vtt_conventional_min']=delta(row.get('ATA'),row.get('etd_arrival'))
     out['vtt_real_min']=delta(row.get('ATA'),row.get('etd_real')) if row.get('status')=='COMPLETED_QC_PASS' else None
+    for phase in ('early','conventional'):
+        base=out.get('vtt_'+phase+'_base_min'); corrected=out.get('vtt_'+phase+'_min')
+        out['vtt_'+phase+'_correction_min']=round(corrected-base,3) if base is not None and corrected is not None else None
     return out
 
 def daily_rows(state,day):
