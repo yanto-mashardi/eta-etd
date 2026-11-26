@@ -25,3 +25,20 @@ class DepartureBoardTest(unittest.TestCase):
   b=operational_boards([r],{"x":r},{"x":{"status":"STALE"}})
   self.assertEqual(next(x for x in b["departures"] if x["board_kind"]=="REAL")["board_color"],"unknown")
   self.assertTrue(all(x["ais_quality"]=="STALE" for x in b["departures"]))
+
+ def test_all_four_tables_and_exact_source(self):
+  def t(h,m):return f"2026-11-26T{h:02d}:{m:02d}:00+07:00"
+  m="525003298"
+  prior=dict(mmsi=m,trip_id="prior",destination_port="BENGKALIS",status="COMPLETED_QC_PASS",etd_real=t(8,0),etd_early=t(8,0),etd_arrival=t(8,1),early_published_at=t(6,0),arrival_published_at=t(7,0))
+  out=dict(mmsi=m,trip_id="out",origin_port="BENGKALIS",destination_port="PAKNING",D0_utc=t(8,0),status="SAILING",eta_corrected=t(8,30),etd_early=t(9,15),early_published_at=t(8,1))
+  def projection(r):
+   b=operational_boards([prior,out,r],{m:r},{m:{"status":r["status"]}})
+   return {(k,x["board_port"]):(x["board_time"],x["board_color"]) for k,rows in b.items() for x in rows}
+  self.assertEqual(projection(out),{("departures","BENGKALIS"):(t(8,0),"actual"),("arrivals","PAKNING"):(t(8,30),"incoming"),("departures","PAKNING"):(t(9,15),"incoming")})
+  out.update(status="BERTHED",ATA=t(8,35),etd_arrival=t(9,0),arrival_published_at=t(8,40))
+  self.assertEqual(projection(out),{("arrivals","PAKNING"):(t(8,35),"late"),("departures","PAKNING"):(t(9,0),"berthed")})
+  out.update(status="COMPLETED_QC_PASS",etd_real=t(9,5))
+  back=dict(mmsi=m,trip_id="back",origin_port="PAKNING",destination_port="BENGKALIS",D0_utc=t(9,5),status="SAILING",eta_corrected=t(9,50),etd_early=t(10,30),early_published_at=t(9,6))
+  self.assertEqual(projection(back),{("departures","PAKNING"):(t(9,5),"late"),("arrivals","BENGKALIS"):(t(9,50),"incoming"),("departures","BENGKALIS"):(t(10,30),"incoming")})
+  back.update(status="BERTHED",ATA=t(9,45),etd_arrival=t(10,25))
+  self.assertEqual(projection(back),{("arrivals","BENGKALIS"):(t(9,45),"actual"),("departures","BENGKALIS"):(t(10,25),"berthed")})

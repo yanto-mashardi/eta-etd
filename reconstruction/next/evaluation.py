@@ -61,8 +61,13 @@ def record_trip(state,m,v,cycle=None,status=None):
     # Never erase already published values or confirmed berth evidence with a missing field.
     journal[key]={**previous,**{k:x for k,x in row.items() if x is not None}}
 
+def timing_comparison(actual,estimate,published):
+    if not (actual and estimate and published) or dt(published)>=dt(actual):return None
+    return (dt(estimate)-dt(actual)).total_seconds()/60
+
 def with_vtt(row):
     out=dict(row)
+    out['eta_error_min']=timing_comparison(row.get('ATA'),row.get('eta_corrected'),row.get('early_published_at'))
     out['vtt_conventional_min']=delta(row.get('ATA'),row.get('etd_arrival'))
     out['vtt_real_min']=delta(row.get('ATA'),row.get('etd_real')) if row.get('status')=='COMPLETED_QC_PASS' else None
     for phase in ('early','conventional'):
@@ -109,19 +114,17 @@ def operational_boards(rows,active,states):
         quality="STALE" if stale else "FRESH"
         origin,dest=r["origin_port"],r["destination_port"]
         if r.get("ATA"):
-            ata=r["ATA"];eta=r.get("eta_corrected")
-            published=r.get("early_published_at")
-            comparable=eta and published and dt(published)<dt(ata)
-            color=("late" if dt(ata)>dt(eta) else "actual") if comparable else "unknown"
+            ata=r["ATA"]
+            error=with_vtt(r)["eta_error_min"]
+            color=("late" if error<0 else "actual") if error is not None else "unknown"
             berth=r.get("departure_berth") or state.get("berth") or state.get("nearest_berth")
             arrivals.append(item(r,dest,origin,ata,"REAL",color,"TIBA",berth,quality))
             departures.append(item(r,dest,origin,r.get("etd_arrival"),"ESTIMATE","berthed","SANDAR",berth,quality))
         elif r["status"] in ("SAILING","ARRIVAL_CANDIDATE"):
             prior=previous.get((str(m),origin,dt(r["D0_utc"])),{})
-            errors=[prior[k] for k in ("early_error_min","arrival_error_min") if prior.get(k) is not None]
-            # Compare exact timestamps for valid published estimates; avoids rounded zero at subsecond delays.
-            comparisons=[dt(r["D0_utc"])>dt(prior[k]) for k,p in (("etd_early","early_published_at"),("etd_arrival","arrival_published_at")) if prior.get(k) and prior.get(p) and dt(prior[p])<dt(r["D0_utc"])]
-            color="late" if any(comparisons) else "actual" if comparisons else "late" if any(e<0 for e in errors) else "actual" if errors else "unknown"
+            errors=[timing_comparison(prior.get("etd_real"),prior.get(k),prior.get(p)) for k,p in (("etd_early","early_published_at"),("etd_arrival","arrival_published_at"))]
+            errors=[e for e in errors if e is not None]
+            color="late" if any(e<0 for e in errors) else "actual" if errors else "unknown"
             departures.append(item(r,origin,dest,r["D0_utc"],"REAL",color,"BERANGKAT",prior.get("departure_berth"),quality))
             arrivals.append(item(r,dest,origin,r.get("eta_corrected"),"ESTIMATE","incoming","BERLAYAR",quality=quality))
             departures.append(item(r,dest,origin,r.get("etd_early"),"ESTIMATE","incoming","MENUJU TERMINAL",quality=quality))
