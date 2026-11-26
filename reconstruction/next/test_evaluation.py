@@ -26,3 +26,15 @@ class EvaluationTest(unittest.TestCase):
   self.assertEqual(len(rows),2)
   self.assertEqual(rows[0]["departure_berth"],"PKN-01")
   self.assertEqual(rows[0]["status"],"COMPLETED_QC_PASS")
+
+ def test_public_projection(self):
+  from evaluation import record_trip,daily_rows,active_trip_rows
+  from datetime import date
+  q={"D0_utc":"2026-11-26T01:00:00+00:00","origin_port":"BENGKALIS","destination_port":"PAKNING"}
+  v={"voyage":q,"status":"SAILING","last":{"ts":q["D0_utc"],"sog":7},"predictions":{"D0":{"issue_utc":q["D0_utc"],"eta":"2026-11-26T01:40:00+00:00","etd":"2026-11-26T02:00:00+00:00"}}}
+  state={"vessels":{"525003298":v}}
+  record_trip(state,"525003298",v)
+  self.assertEqual(active_trip_rows(state)["525003298"],daily_rows(state,date(2026,11,26))[0])
+  v["voyage"]=None
+  self.assertEqual(active_trip_rows(state),{})
+  self.assertEqual(len(daily_rows(state,date(2026,11,26))),1)

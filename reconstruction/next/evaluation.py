@@ -68,3 +68,16 @@ def daily_rows(state,day):
         end=dt(r.get("etd_real") or r.get("last_fix_utc") or r["D0_utc"]).astimezone(WIB).date()
         return start<=day<=end
     return sorted((r for r in rows if included(r)),key=lambda r:(dt(r["D0_utc"]),r["mmsi"]))
+
+def active_trip_rows(state):
+    """Public projection of the same stored rows used by daily monitoring."""
+    journal=state.get("trip_monitor",{})
+    result={}
+    for m,v in state.get("vessels",{}).items():
+        q=v.get("voyage")
+        if not q:continue
+        key=str(m)+"|"+dt(q["D0_utc"]).isoformat()
+        row=journal.get(key)
+        if row and row["status"] in ("SAILING","ARRIVAL_CANDIDATE","BERTHED"):
+            result[m]=dict(row)
+    return result

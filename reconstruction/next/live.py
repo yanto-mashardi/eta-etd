@@ -5,7 +5,7 @@ from pathlib import Path
 from collections import Counter
 import logging
 from copy import deepcopy
-from evaluation import record_trip,daily_rows,WIB
+from evaluation import record_trip,daily_rows,active_trip_rows,WIB
 from events import Tracker,read_seed,classify,atomic_json,dt
 from engine import estimate
 from stockflow import Ledger
@@ -19,6 +19,10 @@ class Live:
         seed=read_seed(self.seed_path) if self.seed_path.exists() else []
         state=json.loads(self.path.read_text()) if self.path.exists() else None
         self.tracker=Tracker(state,seed);self.error=None;self.rejected=0;self.rejection_reasons=Counter();self.duplicates=0
+        # Import only already stored predictions from an ongoing voyage, never rerun them.
+        for m,v in self.tracker.state["vessels"].items():
+            record_trip(self.tracker.state,m,v)
+        atomic_json(self.path,self.tracker.state)
     def tick(self):
         now=datetime.now(timezone.utc)
         with self.ais.open(encoding="utf-8-sig",newline="") as f: rows=list(csv.DictReader(f))
@@ -62,5 +66,5 @@ class Live:
             return daily_rows(self.tracker.state,day)
     def snapshot(self):
         with self.lock:
-            return {"prediction_evaluation":daily_rows(self.tracker.state,datetime.now(WIB).date()),"vessels":self.tracker.snapshot(datetime.now(timezone.utc)),"history_seed_count":self.tracker.seed_count,
+            return {"active_trip_predictions":active_trip_rows(self.tracker.state),"prediction_evaluation":daily_rows(self.tracker.state,datetime.now(WIB).date()),"vessels":self.tracker.snapshot(datetime.now(timezone.utc)),"history_seed_count":self.tracker.seed_count,
                     "completed_live_cycles":len(self.tracker.state["cycles"]),"status":"STAGING_UNVALIDATED" if not self.error else "ERROR:"+self.error,"rejected_rows":self.rejected,"rejection_reasons":dict(self.rejection_reasons),"duplicate_polls":self.duplicates,"timestamp_field":self.field}
