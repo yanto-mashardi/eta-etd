@@ -75,7 +75,7 @@ def status(response:Response,authorization:str=Header(default="")):
 def change(port:str,body:Change,response:Response,authorization:str=Header(default="")):
     admin(authorization);response.headers["Cache-Control"]="no-store"
     if port not in PORTS:raise HTTPException(404,"Unknown port")
-    if body.username in ("any","campus_reader","campus_validation"):raise HTTPException(422,"Reserved username")
+    if body.username in ("any","campus_reader","campus_validation","validation_relay"):raise HTTPException(422,"Reserved username")
     if body.password and not re.fullmatch(r"[A-Za-z0-9_-]{6,128}",body.password):raise HTTPException(422,"Password: 6–128 letters, digits, underscore or hyphen")
     with LOCK:
         cfg=read(CONFIG);meta=read(META);old=publisher(cfg,port)
@@ -115,10 +115,13 @@ def change(port:str,body:Change,response:Response,authorization:str=Header(defau
 
 # Reader permissions never grant publish or API access.
 READER_NAMES=("campus_reader","campus_validation")
+def reader_prefix(name):
+    return "validation/" if name=="campus_validation" else "live/"
+
 def reader_account(cfg,name):
     if name not in READER_NAMES:raise HTTPException(404,"Unknown reader")
     u=next((u for u in cfg["authInternalUsers"] if u["user"]==name),None)
-    if u and (not u.get("permissions") or any(p.get("action")!="read" or p.get("path") not in ["live/"+x for x in PORTS] for p in u["permissions"])):
+    if u and (not u.get("permissions") or any(p.get("action")!="read" or p.get("path") not in [reader_prefix(name)+x for x in PORTS] for p in u["permissions"])):
         raise HTTPException(409,"Unexpected reader permissions")
     return u
 def reader_view(cfg,name):
@@ -135,7 +138,7 @@ def reader_users(cfg,name,body):
     password=body.password or (old or {}).get("pass","")
     if body.enabled and not password:raise HTTPException(422,"Set a password for new reader")
     users=[u for u in cfg["authInternalUsers"] if u is not old]
-    if body.enabled:users.append({"user":name,"pass":password,"permissions":[{"action":"read","path":"live/"+port} for port in PORTS if port in body.ports]})
+    if body.enabled:users.append({"user":name,"pass":password,"permissions":[{"action":"read","path":reader_prefix(name)+port} for port in PORTS if port in body.ports]})
     return users
 @router.get("/readers/accounts")
 def readers(response:Response,authorization:str=Header(default="")):
@@ -162,7 +165,10 @@ def update_reader(name:str,body:ReaderChange,response:Response,authorization:str
                 write(CONFIG,cfg)
                 raise
             logging.info("RTSP reader configuration changed: %s",name)
-        return reader_view(updated,name)
+        result=reader_view(updated,name)
+        if name=="campus_validation" and before!=after:
+            result["disconnected"]=disconnect_validation()
+        return result
 @router.post("/readers/accounts/{name}/connection")
 def reader_connection(name:str,response:Response,authorization:str=Header(default="")):
     admin(authorization);response.headers["Cache-Control"]="no-store"
@@ -170,3 +176,25 @@ def reader_connection(name:str,response:Response,authorization:str=Header(defaul
         u=reader_account(read(CONFIG),name)
         if not u:raise HTTPException(409,"Reader disabled")
         return {"urls":{p["path"].split("/")[-1]:"rtsp://"+quote(name,safe="")+":"+quote(u["pass"],safe="")+"@"+HOST+":8554/"+p["path"] for p in u["permissions"]}}
+
+def validation_ids():
+    ids=[];page=0
+    while True:
+        data=relay("/v3/rtspsessions/list?itemsPerPage=100&page="+str(page))
+        if not isinstance(data,dict):raise HTTPException(503,"Session list unavailable")
+        for s in data.get("items",[]):
+            if s.get("state")=="read" and s.get("path") in {"validation/"+p for p in PORTS}:
+                sid=s.get("id","")
+                if not re.fullmatch(r"[a-fA-F0-9-]{36}",sid):raise HTTPException(503,"Invalid session ID")
+                ids.append(sid)
+        page+=1
+        if page>=data.get("pageCount",1):return ids
+        if page>100:raise HTTPException(503,"Session list too large")
+def disconnect_validation():
+    ids=validation_ids()
+    for sid in ids:relay("/v3/rtspsessions/kick/"+sid,"POST")
+    return len(ids)
+@router.post("/readers/validation/disconnect")
+def kick_validation(response:Response,authorization:str=Header(default="")):
+    admin(authorization);response.headers["Cache-Control"]="no-store"
+    with LOCK:return {"disconnected":disconnect_validation()}
