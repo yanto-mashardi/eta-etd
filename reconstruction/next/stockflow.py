@@ -37,15 +37,17 @@ class Ledger:
         car,motor=count(payload["jumlah_mobil"]),count(payload["jumlah_motor"])
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            old=db.execute("SELECT car,motor FROM arrivals WHERE port=? AND ts=?",(p,ts)).fetchone()
-            if old:
-                if tuple(old)!=(car,motor): raise ValueError("Conflicting snapshot")
-            else:
-                prev=db.execute("SELECT car,motor FROM arrivals WHERE port=? AND day=? AND ts<? ORDER BY ts DESC LIMIT 1",(p,day,ts)).fetchone()
-                nxt=db.execute("SELECT car,motor FROM arrivals WHERE port=? AND day=? AND ts>? ORDER BY ts LIMIT 1",(p,day,ts)).fetchone()
-                if (prev and (car<prev[0] or motor<prev[1])) or (nxt and (car>nxt[0] or motor>nxt[1])): raise ValueError("Counter decreased within day")
-                db.execute("INSERT INTO arrivals VALUES(?,?,?,?,?)",(p,day,ts,car,motor))
-            db.execute("INSERT INTO heartbeat VALUES(?,?) ON CONFLICT(port) DO UPDATE SET ts=max(ts,excluded.ts)",(p,stamp(now.isoformat())))
+            self.insert_arrival(db,p,day,ts,car,motor,now)
+    def insert_arrival(self,db,p,day,ts,car,motor,now):
+        old=db.execute("SELECT car,motor FROM arrivals WHERE port=? AND ts=?",(p,ts)).fetchone()
+        if old:
+            if tuple(old)!=(car,motor): raise ValueError("Conflicting snapshot")
+        else:
+            prev=db.execute("SELECT car,motor FROM arrivals WHERE port=? AND day=? AND ts<? ORDER BY ts DESC LIMIT 1",(p,day,ts)).fetchone()
+            nxt=db.execute("SELECT car,motor FROM arrivals WHERE port=? AND day=? AND ts>? ORDER BY ts LIMIT 1",(p,day,ts)).fetchone()
+            if (prev and (car<prev[0] or motor<prev[1])) or (nxt and (car>nxt[0] or motor>nxt[1])): raise ValueError("Counter decreased within day")
+            db.execute("INSERT INTO arrivals VALUES(?,?,?,?,?)",(p,day,ts,car,motor))
+        db.execute("INSERT INTO heartbeat VALUES(?,?) ON CONFLICT(port) DO UPDATE SET ts=max(ts,excluded.ts)",(p,stamp(now.isoformat())))
     def configure_capacity(self,mmsi,capacity_pce,motor_pce,fill_fraction):
         from decimal import Decimal
         c=Decimal(str(capacity_pce))*100; m=Decimal(str(motor_pce))*100

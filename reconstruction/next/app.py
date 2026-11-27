@@ -11,7 +11,10 @@ from engine import load_release,estimate
 from live import Live
 from stockflow import Ledger
 from health import notices
-from cctv_manager import router as cctv_router
+from cctv_manager import router as cctv_router,admin
+import yolo_publishers as yp
+from fastapi import Response
+from pydantic import BaseModel,StrictInt
 ROOT=Path(os.getenv("BIMA2_NEXT_ROOT","/opt/BIMA2_NEXT"))
 AIS=Path(os.getenv("BIMA2_AIS_CSV","/opt/JAES_SIMULASI_BIMA2/data/01_DATA_SOURCE/AIS/realtime/ais_realtime.csv"))
 app=FastAPI(title="BIMA2 Next",docs_url=None,redoc_url=None)
@@ -102,13 +105,38 @@ def predict_feature_frame(issue,features,phase):
     if models is None: raise RuntimeError("No active model")
     with lock: return estimate(models,issue,features,phase)
 
+class PublisherConfig(BaseModel):
+    device:str
+    enabled:bool=True
+    raw_car:StrictInt
+    raw_motor:StrictInt
+
+@app.get("/api/inspection/yolo")
+def yolo_status(response:Response,authorization:str=Header(default="")):
+    admin(authorization);response.headers["Cache-Control"]="no-store"
+    if not live:raise HTTPException(503,"Not ready")
+    return {"publishers":[yp.status(live.ledger,p) for p in yp.PORTS]}
+
+@app.put("/api/inspection/yolo/{port}")
+def yolo_config(port:str,body:PublisherConfig,response:Response,authorization:str=Header(default="")):
+    admin(authorization);response.headers["Cache-Control"]="no-store"
+    if not live:raise HTTPException(503,"Not ready")
+    try:return yp.configure(live.ledger,port,body.device,body.enabled,body.raw_car,body.raw_motor)
+    except ValueError as e:raise HTTPException(422,str(e))
+
+@app.post("/api/inspection/yolo/{port}/connection")
+def yolo_connection(port:str,response:Response,authorization:str=Header(default="")):
+    admin(authorization);response.headers["Cache-Control"]="no-store"
+    if not live:raise HTTPException(503,"Not ready")
+    return yp.credentials(live.ledger,port)
+
+@app.get("/api/vehicles/{port}/resume")
+def yolo_resume(port:str,device:str,authorization:str=Header(default="")):
+    if not live:raise HTTPException(503,"Not ready")
+    return yp.resume(live.ledger,port,device,authorization)
+
 @app.post("/api/vehicles/{port}")
 def receive_vehicle(port:str,body:dict,authorization:str=Header(default="")):
-    token=os.getenv("BIMA2_VEHICLE_TOKEN","")
-    if not token or not hmac.compare_digest(authorization,"Bearer "+token):
-        raise HTTPException(401,"Unauthorized")
-    if body.get("mode")!="OBSERVED":raise HTTPException(422,"Only OBSERVED input accepted")
     if not live:raise HTTPException(503,"Not ready")
-    try:live.ledger.arrival(port,body["state"])
+    try:return yp.ingest(live.ledger,port,body,authorization)
     except (ValueError,KeyError,TypeError) as e:raise HTTPException(422,str(e))
-    return {"accepted":True}
