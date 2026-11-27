@@ -1,0 +1,24 @@
+name: BIMA2 integrated regression
+on:
+  push:
+    branches: [bima2-integrated]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: reconstruction/next
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install fastapi uvicorn joblib numpy pandas scikit-learn
+      - run: PYTHONPATH="$PWD:$PWD/tests" PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s tests -v
+      - run: |
+          node -e "for(const f of ['public.html','dashboard.html','cctv_manager.html']){let s=require('fs').readFileSync(f,'utf8');for(const m of s.matchAll(/<script>([\\s\\S]*?)<\\/script>/g))new Function(m[1]);console.log(f+' PASS')}"
+          for f in *.sh; do bash -n "$f"; done
