@@ -18,6 +18,22 @@ def nm(lat,lon,x,y):
     a,b,c,d=map(math.radians,(lat,lon,x,y))
     z=math.sin((c-a)/2)**2+math.cos(a)*math.cos(c)*math.sin((d-b)/2)**2
     return 3440.065*2*math.asin(math.sqrt(min(1,max(0,z))))
+def geometry(lat,lon,sog):
+    if not (1.2<=lat<=1.6 and 101.95<=lon<=102.4 and 0<=sog<=40):raise ValueError("AIS outside QC limits")
+    ds=sorted((nm(lat,lon,*xy),p,b) for p,bs in PORTS.items() for b,xy in bs.items())
+    dist,p,b=ds[0];candidate=sog<=.8 and dist<=.15
+    return dict(distance=dist,port=p,berth=b,candidate=candidate,ambiguous=candidate and (ds[1][0]<=.15 or (ds[1][0]-dist)*1852<50))
+
+def evidence(p):
+    if not p:return None
+    return {k:p.get(k) for k in ("ts","received","source_fix_utc","observation_utc","clock_basis","latitude","longitude","sog","port","berth","distance","candidate")}
+
+def quality(row,now):
+    try:
+        seconds=(now-dt(row["ais_update_at"])).total_seconds()
+        return dict(row,live_ais_age_seconds=round(seconds,1),live_ais_quality="FUTURE" if seconds<0 else "STALE" if seconds>300 else "QC" if str(row.get("inference_allowed","")).lower() not in ("true","1") else "FRESH")
+    except (ValueError,KeyError,TypeError):return dict(row,live_ais_age_seconds=None,live_ais_quality="INVALID_TIMESTAMP")
+
 def classify(row,now,field="ais_update_at"):
     if str(row.get("inference_allowed","")).lower() not in ("true","1"): raise ValueError("AIS inference not permitted")
     m=str(row["mmsi"]).strip()
@@ -29,12 +45,7 @@ def classify(row,now,field="ais_update_at"):
     try: cog=float(row.get("cog",""))
     except (TypeError,ValueError): cog=None
     if cog is not None and not (0<=cog<360): cog=None
-    distances=sorted((nm(lat,lon,*xy),p,b) for p,bs in PORTS.items() for b,xy in bs.items())
-    dist,p,b=distances[0]; second=distances[1][0]
-    candidate=sog<=.8 and dist<=.15
-    return {"mmsi":m,"ts":stamp.isoformat(),"received":now.isoformat(),"sog":sog,"cog":cog,"latitude":lat,"longitude":lon,
-            "distance":dist,"port":p,"berth":b,"candidate":candidate,
-            "ambiguous":candidate and (second<=.15 or (second-dist)*1852<50)}
+    return dict(mmsi=m,ts=stamp.isoformat(),received=now.isoformat(),sog=sog,cog=cog,latitude=lat,longitude=lon,**geometry(lat,lon,sog))
 def cycle_key(c): return (str(c["mmsi"]),dt(c["D0_utc"]).isoformat(),dt(c["A_utc"]).isoformat(),dt(c["D1_utc"]).isoformat())
 def clean_cycle(c):
     key=cycle_key(c); d0,a,d1=key[1:]
@@ -153,3 +164,26 @@ class Tracker:
             stale=not last or (now-dt(last["ts"])).total_seconds()>300
             out[m]={"status":"STALE" if stale else v["status"],"last_status":v["status"],"last_observation":dict(last) if last else None,"shipname":v.get("shipname") or m,"port":s["port"] if s else None,"berth":berth,"voyage":v["voyage"],"predictions":v["predictions"],"last_fix_utc":last["ts"] if last else None,"source_fix_utc":last.get("source_fix_utc",last["ts"]) if last else None,"clock_basis":last.get("clock_basis","AIS_UPDATE") if last else None,"last_sog":last.get("sog") if last else None,"last_distance_nm":last.get("distance") if last else None,"last_latitude":last.get("latitude") if last else None,"last_longitude":last.get("longitude") if last else None,"stop_observations":s["n"] if s else 0,"stop_span_min":round(minutes(s["first"]["ts"],s["last"]["ts"]),2) if s else None,"arrival_bracket":s["bracket"] if s else None,"nearest_berth":last["berth"] if last and last["candidate"] and not stale else None,"berth_confidence":"CONFIRMED" if berth and s and s["confirmed"] and not stale else "NEAREST_ONLY" if last and last["candidate"] and not stale else "UNKNOWN"}
         return out
+
+def resolve(p,raw,previous,now):
+    p=dict(p)
+    source=dt(p["ts"])
+    p["source_fix_utc"]=source.isoformat()
+    p["clock_basis"]="AIS_UPDATE"
+    try:p["observation_utc"]=dt(raw["timestamp"]).isoformat()
+    except (KeyError,ValueError,TypeError):p["observation_utc"]=None
+    if not previous:return p
+    last=dt(previous["ts"])
+    last_source=dt(previous.get("source_fix_utc",previous["ts"]))
+    if source<last_source:return None
+    changed=any(p.get(k)!=previous.get(k) for k in ("latitude","longitude","sog","cog"))
+    if source==last_source and not changed:return None
+    if source>last and source>last_source:return p
+    # A new payload may share an AIS update timestamp. Use the existing
+    # provider observation timestamp, never server poll time or +epsilon.
+    try: observation=dt(raw["timestamp"])
+    except (ValueError,TypeError,KeyError):return None
+    if not (observation>last and source<=observation<=now and (now-observation).total_seconds()<=300):return None
+    p["ts"]=observation.isoformat()
+    p["clock_basis"]="PROVIDER_OBSERVATION"
+    return p

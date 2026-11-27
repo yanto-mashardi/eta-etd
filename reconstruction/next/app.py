@@ -63,7 +63,7 @@ def trajectories(day: str = ""):
     try: selected=date.fromisoformat(day) if day else today
     except ValueError: raise HTTPException(400,"Expected YYYY-MM-DD")
     if not today-timedelta(days=7)<=selected<=today: raise HTTPException(400,"Local inspection range: last seven days plus today")
-    try:return daily(AIS,selected)
+    try:return daily(AIS,selected,live.monitoring(selected) if live else ())
     except OSError:raise HTTPException(503,"Local AIS archive unreadable")
 
 @app.get("/api/inspection/monitoring")
@@ -76,28 +76,9 @@ def monitoring(day: str = ""):
 
 @app.get("/api/status")
 def status():
-    try:
-        with AIS.open(encoding="utf-8-sig",newline="") as f: rows=list(csv.DictReader(f))
-        age=max(0,datetime.now(timezone.utc).timestamp()-AIS.stat().st_mtime)
-        ais_status="STALE" if age>300 else "AVAILABLE"
-    except (OSError,csv.Error): rows=[];age=None;ais_status="UNAVAILABLE"
     now=datetime.now(timezone.utc)
-    for row in rows:
-        try:
-            seconds=(now-dt(row["ais_update_at"])).total_seconds()
-            row["live_ais_age_seconds"]=round(seconds,1)
-            row["live_ais_quality"]="FUTURE" if seconds<0 else "STALE" if seconds>300 else "QC" if str(row.get("inference_allowed","")).lower() not in ("true","1") else "FRESH"
-        except (ValueError,KeyError,TypeError):
-            row["live_ais_age_seconds"]=None;row["live_ais_quality"]="INVALID_TIMESTAMP"
-    vehicles={}
-    for port in ("bengkalis","pakning"):
-        try:
-            p=ROOT/"data"/"vehicles"/(port+".json")
-            vehicles[port]={"state":json.loads(p.read_text()),"file_age_seconds":max(0,datetime.now(timezone.utc).timestamp()-p.stat().st_mtime)}
-        except (OSError,ValueError): vehicles[port]=None
-    if live:
-        vehicles={p:live.ledger.snapshot(p) for p in ("bengkalis","pakning")}
-    event=live.snapshot(rows,ais_status,now) if live else None
+    rows,age,ais_status,event=live.status_snapshot(now) if live else ([],None,"UNAVAILABLE",None)
+    vehicles={p:live.ledger.snapshot(p) for p in ("bengkalis","pakning")} if live else {}
     return {"notifications":notices(ais_status,rows,model_status,event,vehicles,now),"ais_status":ais_status,"ais_file_age_seconds":age,"vessels":rows,"models":{"release":release,"status":model_status,"algorithms":{r:b.get("algorithm",b.get("estimator_name")) for r,b in (models or {}).items()}},"vehicles":vehicles,"prediction_status":"STAGING_UNVALIDATED","event_engine":event}
 
 # Offline/staging prediction helper is intentionally not exposed as a public write API.

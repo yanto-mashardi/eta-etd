@@ -2,7 +2,7 @@
 A first valid stationary fix at the expected destination publishes operational A.
 Research acceptance still requires the original multi-fix confirmation and QC.
 """
-from events import Tracker,PORTS,dt,minutes,features,clean_cycle,cycle_key
+from events import Tracker,PORTS,dt,minutes,features,clean_cycle,cycle_key,evidence
 from evaluation import trip_key,row_start
 
 class OperationalTracker(Tracker):
@@ -17,6 +17,9 @@ class OperationalTracker(Tracker):
         if not str(r.get("status","")).startswith("INCOMPLETE_") or not r.get("D0_utc") or r.get("ATA") or r.get("etd_real") or r["destination_port"]!=p["port"] or not 15<=minutes(r["D0_utc"],p["ts"])<=120:return
         v["voyage"]={k:r[k] for k in ("D0_utc","origin_port","destination_port")}
         v["voyage"]["qc_flags"]=["RECOVERED_AFTER_GAP"]
+        import json
+        try:v["voyage"]["event_evidence"]=json.loads(r.get("event_evidence_json") or "{}")
+        except (ValueError,TypeError):v["voyage"]["event_evidence"]={}
         # Retain published values from the journal; do not re-run D0.
         v["predictions"]={}
         v["stop"]=None
@@ -25,7 +28,7 @@ class OperationalTracker(Tracker):
         dest=first["port"];origin=next(k for k in PORTS if k!=dest)
         f=dict(first,received=p["received"])
         q=dict(D0_utc=None,A_utc=first["ts"],origin_port=origin,destination_port=dest,
-               qc_flags=["MISSING_D0","ORIGIN_ROUTE_ASSUMED"],publication_protocol=protocol)
+               qc_flags=["MISSING_D0","ORIGIN_ROUTE_ASSUMED"],publication_protocol=protocol,event_evidence={"A":evidence(first),"A_known_at":p["received"]})
         if protocol=="RECOVERED_ARRIVAL":q["qc_flags"].append("HISTORICAL_OBSERVATION_CLOCK")
         v.update(voyage=q,predictions={},status="BERTHED")
         return dict(phase="A",issue_utc=q["A_utc"],published_at=p["received"],features=features(self.history,f,origin,dest))
@@ -66,6 +69,8 @@ class OperationalTracker(Tracker):
             if q and not q.get("A_utc"):
                 q["A_utc"]=p["ts"]
                 q["A_confirmed_at"]=None
+                q.setdefault("event_evidence",{})["A"]=evidence(p)
+                q["event_evidence"]["A_bracket"]=evidence(prev)
                 q["publication_protocol"]="FIRST_STATIONARY_FIX"
                 if not s["bracket"]:flag("ARRIVAL_BRACKET_MISSING")
                 if minutes(q["D0_utc"],p["ts"])<15:flag("SAILING_DURATION_QC")
@@ -95,7 +100,8 @@ class OperationalTracker(Tracker):
                     if not s["confirmed"]:flag("ARRIVAL_STOP_UNCONFIRMED")
                     if s.get("proxy_clock"):flag("PROVIDER_OBSERVATION_CLOCK")
                     if minutes(bracket["ts"],p["ts"])>10:flag("DEPARTURE_BRACKET_GAP")
-                    v["operational_exit"]={"trip_id":trip_key(p["mmsi"],q),"D1_utc":p["ts"],"qc_flags":list(q.get("qc_flags",[]))}
+                    q.setdefault("event_evidence",{}).update(D1=evidence(p),D1_bracket=evidence(bracket))
+                    v["operational_exit"]={"trip_id":trip_key(p["mmsi"],q),"D1_utc":p["ts"],"qc_flags":list(q.get("qc_flags",[])),"event_evidence":q["event_evidence"]}
                     try:
                         if not q.get("D0_utc"):raise ValueError("Arrival-only record")
                         cycle=clean_cycle(dict(q,mmsi=p["mmsi"],D1_utc=p["ts"],known_at=p["received"]))
@@ -104,7 +110,7 @@ class OperationalTracker(Tracker):
                                 self.history.append(cycle);self.state["cycles"].append(cycle)
                         else: v["operational_exit"]["qc_flags"].append("RESEARCH_QC_NOT_PASSED")
                     except ValueError:v["operational_exit"]["qc_flags"].append("DURATION_QC")
-                v.update(stop=None,voyage=dict(origin_port=origin,destination_port=dest,D0_utc=p["ts"],qc_flags=origin_flags,publication_protocol="FIRST_STATIONARY_FIX"),status="SAILING",predictions={})
+                v.update(stop=None,voyage=dict(origin_port=origin,destination_port=dest,D0_utc=p["ts"],qc_flags=origin_flags,publication_protocol="FIRST_STATIONARY_FIX",event_evidence={"D0":evidence(p),"D0_bracket":evidence(bracket)}),status="SAILING",predictions={})
                 emit("D0",origin,dest)
         elif s:
             # Zero SOG outside a berth never creates D0; retain the last known berth until movement.
@@ -116,3 +122,55 @@ class OperationalTracker(Tracker):
         else:v["status"]="WAITING_ORIGIN"
         v["last"]=p
         return events
+
+import json
+from datetime import timedelta
+from trajectories import messages,normalize,WIB
+MAX_BYTES=4*1024*1024
+MAX_LOOKBACK_MIN=180
+
+def find_arrival(ais,p):
+    now=dt(p["ts"]);m=p["mmsi"];port=p["port"]
+    points={};conflicts=set()
+    for day in {now.date(),(now-timedelta(minutes=MAX_LOOKBACK_MIN)).date()}:
+        path=ais.parent/"raw"/("ais_api_raw_"+day.strftime("%Y%m%d")+".jsonl")
+        try:
+            with path.open("rb") as f:
+                size=f.seek(0,2);start=max(0,size-MAX_BYTES);f.seek(start)
+                if start:f.readline()
+                for line in f:
+                    try:
+                        e=json.loads(line)
+                        if not isinstance(e,dict):continue
+                        rx=e.get("received_at")
+                        for r in messages(e.get("payload")):
+                            if not isinstance(r,dict) or str(r.get("mmsi",r.get("immsi",""))).strip()!=m:continue
+                            stamp=dt(r["timestamp"])
+                            if not 0<=minutes(stamp,now)<=MAX_LOOKBACK_MIN:continue
+                            x=normalize(r,rx,stamp.astimezone(WIB).date())
+                            if not x:continue
+                            try:cog=float(r.get("course",r.get("cog")))
+                            except (ValueError,TypeError):cog=None
+                            x["cog"]=cog if cog is not None and 0<=cog<360 else None
+                            key=x["ts"];old=points.get(key)
+                            if old and any(old[k]!=x[k] for k in ("lat","lon","sog")):conflicts.add(key)
+                            else:points[key]=x
+                    except (ValueError,TypeError,KeyError,OverflowError):continue
+        except OSError:continue
+    ordered=sorted((x for k,x in points.items() if k not in conflicts),key=lambda x:dt(x["ts"]))
+    return first_stationary(ordered,p)
+
+def first_stationary(ordered,p):
+    # The latest observed berth run must connect to the live berth fix.
+    last=p;first=None
+    for x in reversed(ordered):
+        gap=minutes(x["ts"],last["ts"])
+        if gap<0:continue
+        if x["candidate"] and x["port"]==p["port"]:
+            if gap>12:return None
+            first=x;last=x;continue
+        # Require a preceding nonstationary observation, not another berth.
+        if first and not x["candidate"] and x["sog"]>.8 and 0<gap<=10:
+            return first
+        return None
+    return None
