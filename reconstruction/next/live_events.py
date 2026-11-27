@@ -2,10 +2,10 @@
 A first valid stationary fix at the expected destination publishes operational A.
 Research acceptance still requires the original multi-fix confirmation and QC.
 """
-from events import Tracker,PORTS,dt,minutes,features,clean_cycle,cycle_key,evidence
+from events import TrackerState,PORTS,dt,minutes,features,clean_cycle,cycle_key,evidence
 from evaluation import trip_key,row_start
 
-class OperationalTracker(Tracker):
+class OperationalTracker(TrackerState):
     def recover(self,p):
         """Recover only the latest interrupted trip with frozen D0 and matching destination."""
         v=self.state["vessels"].get(p["mmsi"])

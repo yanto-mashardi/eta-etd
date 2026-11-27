@@ -1,6 +1,7 @@
 import unittest
 from datetime import datetime,timezone,timedelta
-from events import Tracker,features,classify,PORTS,clean_cycle
+from legacy_tracker import Tracker
+from events import features,classify,PORTS,clean_cycle
 T=datetime(2026,11,25,0,tzinfo=timezone.utc)
 def fix(n,port=None,received=None):
     t=T+timedelta(minutes=n);p=port or "BENGKALIS"

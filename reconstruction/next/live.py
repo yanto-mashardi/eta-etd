@@ -55,7 +55,8 @@ class Live:
             self.raw_rows=[];self.classified={};self.file_mtime=None
             raise
         self.raw_rows=rows;self.classified={};self.file_mtime=mtime
-        if now.timestamp()-mtime>300:return
+        if now.timestamp()-mtime>300:
+            self.error="AIS_FILE_STALE";return
         for row in rows:
             try: p=classify(row,now,self.field)
             except (ValueError,KeyError,TypeError) as e: self.rejected+=1;self.rejection_reasons[str(e)[:120]]+=1;continue

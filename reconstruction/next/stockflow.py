@@ -1,5 +1,6 @@
 """Persistent stock-flow ledger. Only observed arrivals and declared loads."""
-import sqlite3, json
+import sqlite3, json, threading
+from copy import deepcopy
 from datetime import datetime, timezone, date, timedelta
 from zoneinfo import ZoneInfo
 from pathlib import Path
@@ -19,6 +20,7 @@ def port(p):
 class Ledger:
     def __init__(self,path):
         self.path=Path(path);self.path.parent.mkdir(parents=True,exist_ok=True)
+        self._snapshot_lock=threading.RLock();self._snapshot_conn=None;self._snapshots={}
         with self.connect() as db:
             db.executescript("""CREATE TABLE IF NOT EXISTS arrivals(port TEXT, day TEXT, ts TEXT, car INTEGER, motor INTEGER, PRIMARY KEY(port,ts));
             CREATE TABLE IF NOT EXISTS departures(id TEXT PRIMARY KEY, port TEXT, ts TEXT, mmsi TEXT, car INTEGER, motor INTEGER, source TEXT);
@@ -75,7 +77,29 @@ class Ledger:
             values=(count(car),count(motor),source)
             if row["source"] is not None and tuple(row)!=values: raise ValueError("Load already recorded; correction requires audited reconciliation")
             db.execute("UPDATE departures SET car=?,motor=?,source=? WHERE id=?",(*values,eid))
+    def close(self):
+        with self._snapshot_lock:
+            if self._snapshot_conn is not None:self._snapshot_conn.close()
+            self._snapshot_conn=None;self._snapshots.clear()
     def snapshot(self,p):
+        p=port(p)
+        with self._snapshot_lock:
+            if self._snapshot_conn is None:
+                self._snapshot_conn=sqlite3.connect(self.path,timeout=10,check_same_thread=False)
+            revision=self._snapshot_conn.execute("PRAGMA data_version").fetchone()[0]
+            now=datetime.now(timezone.utc);day=now.astimezone(WIB).date()
+            prior=self._snapshots.get(p)
+            if prior:
+                oldrev,oldday,at,data=prior
+                hb=data.get("last_received")
+                crossing=bool(hb and (at-datetime.fromisoformat(hb)).total_seconds()<=120<(now-datetime.fromisoformat(hb)).total_seconds())
+                if revision==oldrev and day==oldday and not crossing and (now-at).total_seconds()<60:return deepcopy(data)
+            data=self._calculate_snapshot(p)
+            after=self._snapshot_conn.execute("PRAGMA data_version").fetchone()[0]
+            if revision==after:self._snapshots[p]=(after,day,now,deepcopy(data))
+            else:self._snapshots.pop(p,None)
+            return data
+    def _calculate_snapshot(self,p):
         p=port(p)
         with self.connect() as db:
             db.execute("BEGIN")

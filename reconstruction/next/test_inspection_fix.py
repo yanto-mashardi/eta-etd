@@ -1,6 +1,7 @@
 import unittest
 from trajectories import split_trips
-from events import Tracker,dt
+from legacy_tracker import Tracker
+from events import dt
 class InspectionFix(unittest.TestCase):
  def test_stationary_visible(self):
   p=dict(mmsi="525100240",shipname="Test",ts="2026-11-26T01:00:00+00:00",received="2026-11-26T01:00:00+00:00",lat=1.38,lon=102.1485,sog=0,cog=None,distance=.01,port="PAKNING",berth="PKN-01",candidate=True,ambiguous=True)

@@ -40,6 +40,7 @@ def init():
 def shutdown():
     if live: live.stop.set()
     if worker: worker.join(timeout=10)
+    if live and (not worker or not worker.is_alive()):live.ledger.close()
 
 @app.get("/")
 @app.get("/bengkalis")
