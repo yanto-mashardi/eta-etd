@@ -1,8 +1,8 @@
 import unittest
 from datetime import datetime,timezone
 from events import classify
-from observation_clock import resolve
-from operational import publish
+from events import resolve
+from evaluation import publish
 
 class ProviderClockTests(unittest.TestCase):
  def fixture(self):

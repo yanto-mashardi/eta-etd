@@ -1,7 +1,7 @@
 import unittest
 from datetime import timedelta
 from events import classify
-from operational import publish
+from evaluation import publish
 from test_operational import NOW,M,raw,trip
 
 def state(r,fix):

@@ -125,7 +125,12 @@ def normalize_one(raw: dict, fmap: dict, qc: dict, centers: dict, buffer_nm: flo
         return None
 
     naive_tz = str(qc.get("naive_timestamp_timezone", "Asia/Jakarta"))
-    timestamp = parse_ts(raw.get(fmap["timestamp"]), naive_tz) or pd.Timestamp.now(tz="UTC")
+    provider_observation = parse_ts(raw.get(fmap["timestamp"]), naive_tz)
+    timestamp = provider_observation if provider_observation is not None else pd.Timestamp.now(tz="UTC")
+    if provider_observation is None:
+        observation_basis = "SERVER_FALLBACK"
+    else:
+        observation_basis = "PROVIDER_ASSUMED_TZ" if pd.Timestamp(raw.get(fmap["timestamp"])).tzinfo is None else "PROVIDER_EXPLICIT_OFFSET"
     update_ts = parse_ts(raw.get(fmap.get("ais_update_at", "update_at")), naive_tz)
     data_age = (timestamp - update_ts).total_seconds() if update_ts is not None else None
     if data_age is not None:
@@ -147,6 +152,7 @@ def normalize_one(raw: dict, fmap: dict, qc: dict, centers: dict, buffer_nm: flo
 
     return {
         "timestamp": timestamp.isoformat(),
+        "provider_observation_basis": observation_basis,
         "mmsi": mmsi,
         "latitude": lat,
         "longitude": lon,
@@ -283,7 +289,8 @@ def poll_once(root: Path, cfg: dict) -> tuple[int, int]:
     atomic_json(state_payload, output_csv.parent / "ais_current_state.json")
 
     if bool(api.get("append_history", False)):
-        append_csv(pd.DataFrame(normalized), root / api["history_file"])
+        # Keep the existing historical CSV schema and column order unchanged.
+        append_csv(pd.DataFrame(normalized).drop(columns=["provider_observation_basis"],errors="ignore"), root / api["history_file"])
     return len(rows), len(vessels)
 
 

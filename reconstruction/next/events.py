@@ -26,7 +26,7 @@ def geometry(lat,lon,sog):
 
 def evidence(p):
     if not p:return None
-    return {k:p.get(k) for k in ("ts","received","source_fix_utc","observation_utc","clock_basis","latitude","longitude","sog","port","berth","distance","candidate")}
+    return {k:p.get(k) for k in ("ts","received","source_fix_utc","observation_utc","provider_observation_basis","clock_basis","latitude","longitude","sog","port","berth","distance","candidate")}
 
 def quality(row,now):
     try:
@@ -109,6 +109,7 @@ def resolve(p,raw,previous,now):
     source=dt(p["ts"])
     p["source_fix_utc"]=source.isoformat()
     p["clock_basis"]="AIS_UPDATE"
+    p["provider_observation_basis"]=raw.get("provider_observation_basis") or "LEGACY_UNVERIFIED"
     try:p["observation_utc"]=dt(raw["timestamp"]).isoformat()
     except (KeyError,ValueError,TypeError):p["observation_utc"]=None
     if not previous:return p
@@ -120,6 +121,7 @@ def resolve(p,raw,previous,now):
     if source>last and source>last_source:return p
     # A new payload may share an AIS update timestamp. Use the existing
     # provider observation timestamp, never server poll time or +epsilon.
+    if p["provider_observation_basis"]=="SERVER_FALLBACK":return None
     try: observation=dt(raw["timestamp"])
     except (ValueError,TypeError,KeyError):return None
     if not (observation>last and source<=observation<=now and (now-observation).total_seconds()<=300):return None

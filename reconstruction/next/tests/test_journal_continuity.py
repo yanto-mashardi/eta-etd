@@ -6,7 +6,7 @@ from test_events import fix
 from test_operational import NOW,M as PUBLIC_M,raw,trip
 from live_events import OperationalTracker
 from evaluation import record_trip,active_trip_rows,trip_key
-from operational import publish
+from evaluation import publish
 from prediction_archive import FIELDS
 M="525002060"
 class JournalContinuity(unittest.TestCase):

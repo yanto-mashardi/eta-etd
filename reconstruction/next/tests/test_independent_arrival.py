@@ -5,7 +5,7 @@ from test_events import fix
 from live_events import OperationalTracker
 from evaluation import record_trip,active_trip_rows,daily_rows,operational_boards,trip_key
 from prediction_archive import groups
-from arrival_recovery import first_stationary
+from live_events import first_stationary
 M="525002060"
 class IndependentArrival(unittest.TestCase):
  def test_arrival_without_d0_and_return(self):
