@@ -1,10 +1,10 @@
 <!doctype html><html lang="id"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BIMA2 | Ferry Operations</title><link rel="stylesheet" href="/map-assets/maplibre-gl.css"><script src="/map-assets/maplibre-gl.js"></script>
 <style>*{box-sizing:border-box}body{font:14px system-ui,sans-serif;background:#eef3f7;color:#20364a;margin:0}header{background:#102d43;color:#fff;padding:22px 28px}header h1{margin:0 0 5px;font-size:25px}main{max-width:1450px;margin:auto;padding:20px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}section{background:#fff;border:1px solid #d6e1e9;border-radius:9px;padding:16px;margin-bottom:14px;overflow:auto}h2{margin:0 0 12px;font-size:17px}h3{margin:8px 0;font-size:13px;color:#527084}.metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px}.metric{padding:12px;background:#f0f5f8;border-radius:6px}.metric strong{display:block;font-size:29px;font-variant-numeric:tabular-nums}small,.muted{color:#617589}table{border-collapse:collapse;width:100%;white-space:nowrap}td,th{padding:9px;text-align:left;border-bottom:1px solid #e2e8ef}th{font-size:11px;text-transform:uppercase;color:#53697b}.tag{font-size:12px;font-weight:600;color:#99621b}.good{color:#19765d}.bad{color:#b04c30}svg{width:100%;height:auto;display:block;background:#e7f1f7;border-radius:7px}footer{padding:12px;color:#617589}#notice{margin-bottom:14px;color:#8b5621} .wide{min-width:0}#trackMap{height:480px;position:relative;background:#d9eef8;border-radius:8px}.track-controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center}.track-controls input,.track-controls select,.track-controls button{font:inherit;padding:7px;border:1px solid #9ab9cb;border-radius:5px}.track-controls label{font-weight:600}#trackStatus{color:#14567d}main{max-width:1900px}#monitorSection{overflow:visible;min-width:0}#monitorTable{width:100%;table-layout:fixed;white-space:normal;font-size:clamp(10px,.9vw,14px)}#monitorTable td,#monitorTable th{padding:7px 3px;overflow-wrap:anywhere;text-align:center;vertical-align:top;line-height:1.25}#monitorTable th{font-size:inherit;text-transform:none;background:#e5f3fc;color:#174e70}#monitorTable thead tr:first-child th{background:#086a9e;color:white}#monitorTable td:first-child{text-align:left;font-weight:600}#monitorTable td small{display:block;font-size:.88em}#monitorTable tbody tr:nth-child(even){background:#f0f8fc}.monitorLegend{font-size:12px;color:#526f83;line-height:1.45;margin-bottom:0}@media(max-width:850px){#monitorTable{font-size:9px}#monitorSection{padding:8px}#monitorTable td,#monitorTable th{padding:4px 1px}}.seven-rows{overflow:auto;min-width:0;scrollbar-gutter:stable;overflow-anchor:none}.seven-rows table{border-collapse:separate;border-spacing:0}.seven-rows thead{position:sticky;top:0;z-index:3}.seven-rows thead th{background:#e1f1fb;color:#174e70;box-shadow:0 1px 0 #9dbdd0}.seven-rows tbody tr{background:#fff}#monitorTable thead tr:first-child th{background:#086a9e;color:#fff}#monitorTable thead tr:nth-child(2) th{background:#e5f3fc;color:#174e70}#healthNotices:empty{display:none}#healthNotices{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}.health-alert{padding:6px 9px;border-radius:5px;background:#fff0d5;color:#87530b;font-size:13px}.health-alert.error{background:#ffe4e0;color:#9c2519}.health-alert.info{background:#e4f1fa;color:#245777}.cctv-form,.cctv-output{display:grid;gap:8px}.cctv-form label,.cctv-output label{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-weight:600}.cctv-form input:not([type=checkbox]),.cctv-form select,.cctv-output input{flex:1;min-width:140px;padding:8px;border:1px solid #9cbfd3;border-radius:5px;font:inherit}.cctv-output input{width:100%}#cctvManager button{padding:8px 12px;border:1px solid #8eb4cd;border-radius:5px;background:#e8f5ff;color:#154e70;cursor:pointer}#cctvCards section{min-width:0;overflow-wrap:anywhere}#cctvCards h3{font-size:18px}</style>
-<nav style="display:flex;align-items:center;gap:20px;background:#103b54;padding:12px 24px;color:white"><b style="margin-right:auto">Bengkalis–Pakning Ferry</b><a style="color:white" href="/bengkalis">Bengkalis</a><a style="color:white" href="/pakning">Pakning</a><a style="color:white" href="/inspection">Inspection</a></nav><header><h1>BIMA2 — Ferry Operations</h1><div>Bengkalis · Sungai Pakning | Staging / AIS provisional</div></header><main>
+<nav style="display:flex;align-items:center;gap:20px;background:#103b54;padding:12px 24px;color:white"><b style="margin-right:auto">Bengkalis–Pakning Ferry</b><a style="color:white" href="/bengkalis">Bengkalis</a><a style="color:white" href="/pakning">Pakning</a><a style="color:white" href="/inspection">Inspection</a><a style="color:white;font-weight:700;background:#176a98;padding:7px 12px;border-radius:5px;text-decoration:none" href="/inspection/manager">Manager</a></nav><header><h1>BIMA2 — Ferry Operations</h1><div>Bengkalis · Sungai Pakning | Staging / AIS provisional</div></header><main>
 <div id="notice">Menunggu koneksi backend.</div><div id="healthNotices" role="status"></div>
 <div class="grid"><section><h2>AIS real-time</h2><div id="ais"></div><small id="history"></small></section><section><h2>Model aktif</h2><div id="model"></div><small id="release"></small></section><section><h2>Status prediksi</h2><div id="pred"></div><small>Prediksi pada D0 dan A; bukan ETA yang dihitung ulang setiap refresh.</small></section></div>
 <div class="grid" id="ports"></div>
-<section id="cctvManager"><h2>CCTV Connection Manager</h2><p>RTMP Push → MediaMTX → RTSP YOLO. Akses administrator diperlukan.</p><label>Token administrator <input id="cctvToken" type="password" autocomplete="off"></label> <button id="cctvLogin">Hubungkan</button> <button id="cctvLogout">Keluar</button><p id="cctvMessage"></p><div class="grid" id="cctvCards"></div><h3>Akun RTSP Reader</h3><p>Akun operasional dan validasi terpisah. Perubahan password berlaku untuk koneksi baru; sesi RTSP lama mungkin tetap aktif sampai diputus melalui VPS.</p><div class="grid" id="readerCards"></div></section>
+
 <section><h2>Trajektori AIS harian per trip</h2><div class="track-controls"><label>Tanggal WIB <input id="trackDay" type="date"></label><label>Kapal <select id="trackShip"><option value="">Semua kapal</option></select></label><label>Trip <select id="trackTrip"><option value="">Semua trip</option></select></label><label><input id="trackPoints" type="checkbox" checked> Titik AIS</label><button id="trackRefresh">Refresh</button></div><p id="trackStatus">Memuat trajektori...</p><div id="trackMap"></div><small>Garis menghubungkan observasi AIS berdasarkan timestamp provider (WIB). Observasi berulang tidak menjamin fix independen. Gap tidak disambung; segmentasi diagnostik, bukan validasi event penelitian.</small><div id="trackTableScroll" class="seven-rows"><table><thead><tr><th>Warna / Kapal</th><th>Trip</th><th>Asal</th><th>Tujuan</th><th>Mulai WIB</th><th>Akhir WIB</th><th>Durasi (min)</th><th>Titik</th><th>Kualitas</th></tr></thead><tbody id="trackRows"></tbody></table></div></section>
 <section><h2>Posisi AIS terakhir — kualitas dan umur data</h2><table><thead><tr><th>Kapal</th><th>MMSI</th><th>Latitude</th><th>Longitude</th><th>SOG</th><th>Update WIB</th><th>Usia (detik)</th><th>Kualitas</th><th>Dermaga</th><th>Status AIS / Publikasi</th></tr></thead><tbody id="aisRows"></tbody></table></section><section id="monitorSection"><h2>Monitoring operasional dan estimasi ETA–ETD</h2><label>Tanggal WIB <input id="monitorDay" type="date"></label> <button id="monitorRefresh">Refresh</button><p id="monitorInfo"></p><div id="monitorTableScroll" class="seven-rows"><table id="monitorTable"><colgroup><col style="width:15%"><col style="width:8%"><col style="width:7%"><col style="width:4.8%"><col style="width:4.8%"><col style="width:4.8%"><col style="width:4.8%"><col style="width:4.8%"><col style="width:4.8%"><col style="width:4.8%"><col style="width:4.8%"><col style="width:4.8%"><col style="width:4.8%"><col style="width:8%"><col style="width:7%"><col style="width:7%"></colgroup><thead><tr><th colspan="3">Operasional</th><th colspan="4">ETA</th><th colspan="4">ETD</th><th colspan="2">Error (min)</th><th colspan="3">Publikasi / LT</th></tr><tr><th>Kapal / Rute</th><th>St / SOG</th><th>D0 / DB</th><th>Base</th><th>ML1</th><th>Δ</th><th>ATA</th><th>VTT E/C/R</th><th>Early</th><th>Conv.</th><th>Real</th><th>eE</th><th>eC</th><th>Pub E/C</th><th>LT Adv.</th><th>LT D1</th></tr></thead><tbody id="ships"></tbody></table></div><p class="monitorLegend">St: status; SOG: knot; DB: dermaga sandar/berangkat; Base: ETA asli; ML1: ETA terkoreksi; Δ: koreksi ETA (min); ATA: kedatangan aktual; VTT E/C/R (min): Early dan Conventional ditampilkan base → terkoreksi (Δ), R = durasi aktual AIS; baseline lama yang tidak tersimpan ditampilkan —; Conv.: ETD saat tiba; Real: D1 hasil rekonstruksi AIS lolos QC; eE/eC: error Early/Conv. bertanda (prediksi − aktual); Pub E/C: waktu terbit Early/Conv.; LT Adv.: selisih waktu terbit; LT D1: lead time Early ke D1 (min). WIB. Arsip lengkap termasuk absolute error tersedia dalam CSV. Dermaga keberangkatan mengikuti dermaga sandar terkonfirmasi.</p></section>
 <section><h2>Ledger keberangkatan — outflow</h2><div id="ledgerTableScroll" class="seven-rows"><table><thead><tr><th>Pelabuhan</th><th>Kapal / MMSI</th><th>Keberangkatan (WIB)</th><th>Mobil</th><th>Motor</th><th>Sumber muatan</th><th>ID event</th></tr></thead><tbody id="deps"></tbody></table></div><small>Muatan belum dikonfirmasi ditampilkan sebagai pending. Outflow mengikuti kebijakan kapasitas kapal atau data muatan.</small></section>
@@ -74,83 +74,4 @@ const vesselNames={'525002060':'KMP BAHARI NUSANTARA','525003298':'KMP MUTIARA P
 function ledgerName(m,s){const id=String(m),name=s.vessels.find(v=>String(v.mmsi)===id)?.shipname||vesselNames[id];return name&&name!==id?name+' / '+id:id}
 function publicationSummary(e,m){const o=e.operational_vessels?.[m]||{},rows=[...(e.arrival_board||[]).map(t=>({...t,label:'ETA'})),...(e.departure_board||[]).map(t=>({...t,label:'ETD'}))].filter(t=>String(t.mmsi)===String(m));return [o.status,o.sync,...rows.map(t=>t.board_port+' '+t.label+' '+tm(t.board_time)+(t.board_kind==='ESTIMATE'&&t.board_time?' (Estimasi)':'')+' · '+t.board_status)].filter(Boolean).join(' | ')}
 async function poll(){try{const r=await fetch('/api/status',{cache:'no-store'});if(!r.ok)throw Error();const s=await r.json(),e=s.event_engine||{},states=e.vessels||{};put('notice','STAGING — hasil belum tervalidasi. Antrean merupakan rekonstruksi stock–flow.');put('ais',s.ais_status+' · usia file '+fmt(Math.round(s.ais_file_age_seconds??0))+' detik');put('history','Histori awal: '+fmt(e.history_seed_count)+' | siklus live: '+fmt(e.completed_live_cycles));put('model',Object.entries(s.models.algorithms||{}).map(([k,v])=>k+': '+v).join(' | ')||s.models.status);put('release',s.models.release);put('pred',e.status||s.prediction_status);$('healthNotices').replaceChildren(...(s.notifications||[]).map(n=>node('span',n.code+' · '+n.message,'health-alert '+n.severity)));ports(s);$('aisRows').replaceChildren();for(const v of s.vessels)tr($('aisRows'),[v.shipname||v.mmsi,v.mmsi,v.latitude,v.longitude,v.sog,tm(v.ais_update_at),fmt(v.live_ais_age_seconds),v.live_ais_quality||'—',e.operational_vessels?.[v.mmsi]?.berth||'—',publicationSummary(e,v.mmsi)]);replaceRows('ledgerTableScroll',()=>{$('deps').replaceChildren();const departures=['bengkalis','pakning'].flatMap(p=>(s.vehicles[p]?.recent_departures||[]).map(d=>({...d,displayPort:p})));for(const d of newestFirst(departures,d=>d.ts))tr($('deps'),[d.displayPort,ledgerName(d.mmsi,s),tm(d.ts),fmt(d.car),fmt(d.motor),d.source==='CAPACITY_POLICY'?'Kapasitas kapal':d.source==='ESTIMATED'?'Perhitungan':d.source||'PENDING',d.id]);});put('updated','Refresh '+tm(new Date().toISOString())+' WIB')}catch(e){put('notice','Koneksi gagal — data yang tampil mungkin kedaluwarsa.')}finally{setTimeout(poll,5000)}}poll();
-</script><script>
-(()=>{
-const el=id=>document.getElementById(id),msg=t=>el('cctvMessage').textContent=t;
-let token='',cards=new Map(),timer=null,epoch=0,busy=false;
-async function api(path='',body,method=body?'PUT':'GET'){
- const t=token,g=epoch;
- const r=await fetch('/api/inspection/cctv'+path,{method,headers:{Authorization:'Bearer '+t,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,cache:'no-store'});
- if(g!==epoch)throw Error('Sesi telah berakhir');
- if(!r.ok){const d=await r.json().catch(()=>({}));throw Error(typeof d.detail==='string'?d.detail:'HTTP '+r.status)}
- return r.json();
-}
-function make(tag,text){const e=document.createElement(tag);if(text)e.textContent=text;return e}
-function field(form,label,value,type='text'){const l=make('label',label),i=make('input');i.type=type;i.value=value;l.append(i);form.append(l);return i}
-function button(text,fn){const b=make('button',text);b.type='button';b.onclick=fn;return b}
-function build(c){
- const box=make('section'),title=make('h3',c.port.toUpperCase()),state=make('p'),f=make('form');f.className='cctv-form';box.append(title,state,f);
- const device=field(f,'Nama perangkat',c.device),kind=make('select');
- for(const k of ['Larix','OBS','CCTV'])kind.add(new Option(k==='CCTV'?'CCTV fisik / VIGI':k,k));
- kind.value=c.kind;const kl=make('label','Jenis perangkat');kl.append(kind);f.append(kl);
- const user=field(f,'Username publisher',c.username),pass=field(f,'Password baru (min. 6 karakter; kosong = tetap)','','password');pass.autocomplete='new-password';pass.minLength=6;pass.maxLength=128;
- const active=field(f,'Aktif','','checkbox');active.checked=c.enabled;
- const save=make('button','Simpan konfigurasi');save.type='submit';f.append(save,button('Test koneksi',refresh));
- const output=make('div');output.className='cctv-output';box.append(output);
- const rtsp=make('p','RTSP YOLO tetap: '+c.rtsp_url+' (akun campus_reader)');box.append(rtsp);
- let saved={...c},secret=null,revision=0;
- function hide(){secret=null;output.replaceChildren();output.append(make('p','Kredensial disembunyikan. Simpan perubahan sebelum menampilkan URL.'),button('Tampilkan konfigurasi perangkat',reveal))}
- function dirty(){return device.value!==saved.device||kind.value!==saved.kind||user.value!==saved.username||active.checked!==saved.enabled||!!pass.value}
- async function reveal(){
-  if(dirty()){msg('Simpan perubahan terlebih dahulu.');return}
-  const rev=revision;
-  try{const x=await api('/'+c.port+'/connection',null,'POST');if(rev!==revision||dirty())return;secret=x;renderSecret()}catch(e){msg(e.message)}
- }
- function renderSecret(){
-  if(!secret)return;
-  output.replaceChildren();
-  function line(label,value){
-   const l=make('label',label),i=make('input');i.type='password';i.readOnly=true;i.value=value;i.autocomplete='off';
-   l.append(i,button('Lihat',()=>{i.type=i.type==='password'?'text':'password'}),button('Salin',async()=>{try{await navigator.clipboard.writeText(value);msg('Disalin ke clipboard')}catch(e){msg('Clipboard tidak tersedia; gunakan Lihat')}}));output.append(l);
-  }
-  if(saved.kind==='Larix')line('Connection URL',secret.url);
-  else{
-   line('Server Address',secret.server);line('Stream Key',secret.stream_key);
-   output.append(make('small',saved.kind==='OBS'?'OBS: Service Custom; autentikasi sudah berada di Stream Key, jangan isi autentikasi tambahan.':'VIGI: Network Settings → Advanced → RTMP. Dukungan query user/pass pada firmware kamera masih harus diuji.'));
-   line('Alternatif URL lengkap (jika perangkat mendukung)',secret.url);
-  }
-  output.append(button('Sembunyikan kredensial',hide));
- }
- f.addEventListener('input',()=>{revision++;hide()});f.addEventListener('change',()=>{revision++;hide()});
- f.onsubmit=async e=>{e.preventDefault();save.disabled=true;revision++;hide();try{
-  const result=await api('/'+c.port,{device:device.value,kind:kind.value,username:user.value,password:pass.value,enabled:active.checked});
-  saved={...result};device.value=result.device;kind.value=result.kind;user.value=result.username;active.checked=result.enabled;pass.value='';show(result);msg('Konfigurasi tersimpan. Sambungkan ulang kamera bila kredensial berubah.');hide();
- }catch(e){msg(e.message)}finally{save.disabled=false}};
- hide();el('cctvCards').append(box);cards.set(c.port,{state});
-}
-function show(c){if(!cards.has(c.port))build(c);cards.get(c.port).state.textContent=(c.enabled?'Aktif':'Nonaktif')+' | '+(c.ready?'ONLINE':'WAITING')+' | Codec: '+(c.tracks||[]).join(', ')+' | Mulai: '+(c.ready_time||'—')+' | Bytes: '+(c.bytes_received??'—')+' | Reader: '+c.readers}
-async function refresh(){if(!token||busy)return;busy=true;const g=epoch;try{const d=await api();if(g===epoch)d.cameras.forEach(show)}catch(e){if(g===epoch)msg('CCTV: '+e.message)}finally{busy=false}}
-async function loadReaders(){
- const root=el('readerCards');root.replaceChildren();
- try{
- const data=await api('/readers/accounts');
- for(const account of data.accounts){
- const box=make('section'),f=make('form');f.className='cctv-form';
- box.append(make('h3',account.username==='campus_reader'?'Operasional YOLO — campus_reader':'Validasi — campus_validation'),f);
- const pw=field(f,'Password baru (min. 6 karakter)','','password');pw.minLength=6;pw.maxLength=128;pw.autocomplete='new-password';
- const enabled=field(f,'Aktif','','checkbox');enabled.checked=account.enabled;
- const ports=['bengkalis','pakning'].map(p=>{const i=field(f,p,'','checkbox');i.checked=account.ports.includes(p)||!account.enabled;return [p,i]});
- const save=make('button','Simpan akun');save.type='submit';f.append(save);
- const out=make('div');out.className='cctv-output';box.append(out);
- f.oninput=()=>out.replaceChildren();
- f.onsubmit=async e=>{e.preventDefault();save.disabled=true;try{await api('/readers/accounts/'+account.username,{password:pw.value,enabled:enabled.checked,ports:ports.filter(([p,i])=>i.checked).map(([p])=>p)});msg('Akun tersimpan. Koneksi baru memakai konfigurasi terbaru.');await loadReaders()}catch(e){msg(e.message)}finally{save.disabled=false}};
- box.append(button('Tampilkan URL RTSP tersimpan',async()=>{try{const x=await api('/readers/accounts/'+account.username+'/connection',null,'POST');out.replaceChildren();for(const [port,url] of Object.entries(x.urls)){const i=field(out,port,url,'password');i.readOnly=true;out.append(button('Lihat '+port,()=>i.type=i.type==='password'?'text':'password'),button('Salin '+port,()=>navigator.clipboard.writeText(url).catch(()=>msg('Clipboard gagal'))))}out.append(button('Sembunyikan',()=>out.replaceChildren()))}catch(e){msg(e.message)}}));
- root.append(box);
- }
- }catch(e){msg('Reader: '+e.message)}
-}
-function logout(){el('readerCards').replaceChildren();epoch++;token='';clearInterval(timer);cards.clear();el('cctvCards').replaceChildren();el('cctvToken').value=''}
-el('cctvLogin').onclick=()=>{const t=el('cctvToken').value;logout();token=t;refresh();loadReaders();timer=setInterval(refresh,5000)};
-el('cctvLogout').onclick=()=>{logout();msg('Keluar')};
-})();
 </script></html>

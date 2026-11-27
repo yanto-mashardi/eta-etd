@@ -45,6 +45,8 @@ def page(): return FileResponse(Path(__file__).with_name("public.html"))
 
 @app.get("/inspection")
 def inspection(): return FileResponse(Path(__file__).with_name("dashboard.html"))
+@app.get("/inspection/manager")
+def manager(): return FileResponse(Path(__file__).with_name("cctv_manager.html"),headers={"Cache-Control":"no-store"})
 @app.get("/map-assets/{name}")
 def map_asset(name: str):
     if name not in ("leaflet.js","leaflet.css","maplibre-gl.js","maplibre-gl.css"): raise HTTPException(404)

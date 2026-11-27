@@ -9,3 +9,6 @@ Larix rejects a single path component. Use application live and stream key bengk
 
 ## Reader accounts and VPS-only token rotation
 Existing campus_reader remains operational; campus_validation is disabled until configured. Both accounts grant read only, selectable per port. Changes apply to new RTSP sessions; existing sessions may persist. For immediate revocation, restart cctv-relay.service from VPS (interrupts both publishers and readers briefly). No change to YOLO ingestion token. Rotate admin token only with root command bash rotate_cctv_admin_token.sh; service restart invalidates old token, new token remains root-only. No web rotation endpoint. Tests supplied, VPS execution pending.
+
+## Dedicated management page
+CCTV publisher and RTSP reader management moved to /inspection/manager. Navigation link appears only on Inspection (and the manager itself for context); public terminal dashboards unchanged. API authentication unchanged, page HTML contains no credentials, 401 clears manager session. Root-only token rotation remains unchanged. Deploy app.py, dashboard.html, cctv_manager.html, cctv_manager.py and reader/rotation files together if previous reader commit has not been installed. Runtime verification pending.
