@@ -6,6 +6,7 @@ from collections import Counter
 import logging
 import time
 from prediction_archive import prune_verified
+from vehicle_archive import prune_verified as prune_vehicles
 from trajectories import expire_cache
 from copy import deepcopy
 from evaluation import record_trip,daily_rows,active_trip_rows,WIB,trip_key,publish
@@ -27,7 +28,7 @@ class Live:
         for m,v in self.tracker.state["vessels"].items():
             record_trip(self.tracker.state,m,v)
         atomic_json(self.path,self.tracker.state)
-        self.last_archive_prune=0
+        self.last_archive_prune=0;self.last_vehicle_prune=0
         self.raw_rows=[];self.classified={};self.file_mtime=None
     def drain_departures(self):
         pending=self.tracker.state.setdefault('departure_outbox',{})
@@ -116,6 +117,10 @@ class Live:
                 if prune_verified(self.tracker.state,self.root/"data"/"prediction_archive",datetime.now(WIB).date()):
                     atomic_json(self.path,self.tracker.state)
                 self.last_archive_prune=time.monotonic()
+        if time.monotonic()-self.last_vehicle_prune>=900:
+            if not self.tracker.state.get("departure_outbox"):
+                prune_vehicles(self.ledger,self.root/"data"/"prediction_archive"/"vehicles",datetime.now(WIB).date())
+            self.last_vehicle_prune=time.monotonic()
         self.error=None
     def run(self):
         while not self.stop.is_set():

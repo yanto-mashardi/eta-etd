@@ -43,39 +43,48 @@ def sync(root,atomic_file):
     folder=root/"data"/"prediction_archive"/"vehicles";folder.mkdir(mode=0o750,exist_ok=True)
     today=datetime.now(WIB).date();cutoff=(today-timedelta(days=6)).isoformat()
     cmd=["rclone","--config","/root/.config/rclone/rclone.conf"]
-    with sqlite3.connect(path,timeout=10) as db:
+    with sqlite3.connect(path.resolve().as_uri()+"?mode=ro",uri=True,timeout=10) as db:
         db.row_factory=sqlite3.Row
         for day in days(db):
             if day>today.isoformat():continue
-            # Consistent read; never hold a DB write lock during network transfer.
             db.execute("BEGIN")
-            data=rows(db,day);db.commit()
+            data=rows(db,day)
+            sealed="vehicle_archive_sealed" in tables(db) and db.execute("SELECT 1 FROM vehicle_archive_sealed WHERE day=?",(day,)).fetchone()
+            db.commit()
+            if sealed:raise RuntimeError("Unexpected rows in sealed vehicle day "+day)
             if not data:continue
             encoded=encode(data);sha=digest(encoded)
             csvpath=folder/("VEHICLE_LEDGER_"+day+".csv");receipt=folder/(day+".verified.json")
             try:old=json.loads(receipt.read_text())
             except (OSError,ValueError):old={}
-            if not csvpath.exists() or digest(csvpath.read_bytes())!=sha:
-                atomic_file(csvpath,lambda f:f.write(encoded.decode("utf-8")))
+            if day>=cutoff or old.get("sha256")!=sha:
+                if not csvpath.exists() or digest(csvpath.read_bytes())!=sha:
+                    atomic_file(csvpath,lambda f:f.write(encoded.decode("utf-8")))
             if day>=today.isoformat():continue
             remote="aisdrive:CCTV_YOLO/"+csvpath.name
             if old.get("sha256")!=sha:
                 subprocess.run(cmd+["copyto",str(csvpath),remote,"--ignore-times"],check=True,timeout=180)
                 if digest(subprocess.check_output(cmd+["cat",remote],timeout=180))!=sha:raise RuntimeError("Vehicle Drive verification failed "+day)
                 atomic_file(receipt,lambda f:json.dump(dict(sha256=sha,remote=remote),f))
-            if day>=cutoff:continue
+            if day<cutoff and csvpath.exists() and digest(csvpath.read_bytes())==sha:csvpath.unlink()
+
+def prune_verified(ledger,folder,today):
+    """Service-owned transaction; old data cannot be appended after sealing."""
+    cutoff=(today-timedelta(days=6)).isoformat()
+    removed=0
+    with ledger.connect() as db:
+        candidates=[day for day in days(db) if day<cutoff]
+    for day in candidates:
+        try:receipt=json.loads((folder/(day+".verified.json")).read_text())
+        except (OSError,ValueError):continue
+        with ledger.connect() as db:
             db.execute("BEGIN IMMEDIATE")
-            try:
-                if digest(encode(rows(db,day)))!=sha or not safe_to_prune(db,day):
-                    db.rollback()
-                    # Archived data is safe on Drive; retain SQL rows until reconciled.
-                    print("[KEEP VEHICLE SQL] checkpoint required",day,flush=True);continue
-                lo,hi=bounds(day)
-                db.execute("DELETE FROM departure_policy WHERE id IN (SELECT id FROM departures WHERE ts>=? AND ts<?)",(lo,hi))
-                for t in ("arrivals","departures","yolo_handover"):
-                    if t in tables(db):db.execute("DELETE FROM "+t+" WHERE ts>=? AND ts<?",(lo,hi))
-                db.commit()
-                csvpath.unlink(missing_ok=True);receipt.unlink(missing_ok=True)
-            except Exception:
-                db.rollback();raise
-    # Do not delete any data based on age alone.
+            data=rows(db,day)
+            if not data or digest(encode(data))!=receipt.get("sha256") or not safe_to_prune(db,day):continue
+            lo,hi=bounds(day)
+            db.execute("INSERT OR IGNORE INTO vehicle_archive_sealed(day) VALUES(?)",(day,))
+            db.execute("DELETE FROM departure_policy WHERE id IN (SELECT id FROM departures WHERE ts>=? AND ts<?)",(lo,hi))
+            for t in ("arrivals","departures","yolo_handover"):
+                if t in tables(db):db.execute("DELETE FROM "+t+" WHERE ts>=? AND ts<?",(lo,hi))
+            removed+=len(data)
+    return removed

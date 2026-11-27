@@ -27,7 +27,8 @@ class Ledger:
             CREATE TABLE IF NOT EXISTS opening(port TEXT PRIMARY KEY, ts TEXT, car INTEGER, motor INTEGER, counter_car INTEGER, counter_motor INTEGER);
             CREATE TABLE IF NOT EXISTS heartbeat(port TEXT PRIMARY KEY, ts TEXT);
             CREATE TABLE IF NOT EXISTS capacity_policy(mmsi TEXT PRIMARY KEY, capacity_units INTEGER, motor_units INTEGER, fill_fraction REAL);
-            CREATE TABLE IF NOT EXISTS departure_policy(id TEXT PRIMARY KEY, capacity_units INTEGER, motor_units INTEGER, fill_fraction REAL);""")
+            CREATE TABLE IF NOT EXISTS departure_policy(id TEXT PRIMARY KEY, capacity_units INTEGER, motor_units INTEGER, fill_fraction REAL);
+            CREATE TABLE IF NOT EXISTS vehicle_archive_sealed(day TEXT PRIMARY KEY);""")
     def connect(self):
         db=sqlite3.connect(self.path,timeout=10);db.row_factory=sqlite3.Row;return db
     def arrival(self,p,payload,now=None):
@@ -41,6 +42,7 @@ class Ledger:
             db.execute("BEGIN IMMEDIATE")
             self.insert_arrival(db,p,day,ts,car,motor,now)
     def insert_arrival(self,db,p,day,ts,car,motor,now):
+        if db.execute("SELECT 1 FROM vehicle_archive_sealed WHERE day=?",(day,)).fetchone():raise ValueError("Archived day is sealed")
         old=db.execute("SELECT car,motor FROM arrivals WHERE port=? AND ts=?",(p,ts)).fetchone()
         if old:
             if tuple(old)!=(car,motor): raise ValueError("Conflicting snapshot")
@@ -60,6 +62,8 @@ class Ledger:
         p=port(p);ts=stamp(ts);eid=str(mmsi)+"|"+ts+"|"+p
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
+            day=datetime.fromisoformat(ts).astimezone(WIB).date().isoformat()
+            if db.execute("SELECT 1 FROM vehicle_archive_sealed WHERE day=?",(day,)).fetchone():raise ValueError("Archived day is sealed; manual event reconciliation required")
             cur=db.execute("INSERT OR IGNORE INTO departures(id,port,ts,mmsi) VALUES(?,?,?,?)",(eid,p,ts,str(mmsi)))
             if cur.rowcount:
                 db.execute("INSERT INTO departure_policy SELECT ?,capacity_units,motor_units,fill_fraction FROM capacity_policy WHERE mmsi=?",(eid,str(mmsi)))
