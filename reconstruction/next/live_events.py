@@ -2,7 +2,7 @@
 A first valid stationary fix at the expected destination publishes operational A.
 Research acceptance still requires the original multi-fix confirmation and QC.
 """
-from events import TrackerState,PORTS,dt,minutes,features,clean_cycle,cycle_key,evidence
+from events import TrackerState,PORTS,dt,minutes,features,clean_cycle,cycle_key,evidence,canonical_mmsi
 from evaluation import trip_key,row_start
 
 class OperationalTracker(TrackerState):
@@ -144,7 +144,7 @@ def find_arrival(ais,p):
                         if not isinstance(e,dict):continue
                         rx=e.get("received_at")
                         for r in messages(e.get("payload")):
-                            if not isinstance(r,dict) or str(r.get("mmsi",r.get("immsi",""))).strip()!=m:continue
+                            if not isinstance(r,dict) or canonical_mmsi(r.get("mmsi",r.get("immsi","")))!=m:continue
                             stamp=dt(r["timestamp"])
                             if not 0<=minutes(stamp,now)<=MAX_LOOKBACK_MIN:continue
                             x=normalize(r,rx,stamp.astimezone(WIB).date())

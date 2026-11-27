@@ -4,6 +4,10 @@ Realtime input is inference-only. Historical training/validation files are never
 """
 from __future__ import annotations
 
+MMSI_ALIAS = {
+    50862783: 525100240,  # KMP PERMATA LESTARI 3
+}
+
 import argparse
 import json
 import math
@@ -106,7 +110,8 @@ def parse_ts(v: Any, naive_timezone: str | None = None) -> pd.Timestamp | None:
 
 def normalize_one(raw: dict, fmap: dict, qc: dict, centers: dict, buffer_nm: float, whitelist: set[int]) -> dict | None:
     try:
-        mmsi = int(raw.get(fmap["mmsi"]))
+        reported_mmsi = int(raw.get(fmap["mmsi"]))
+        mmsi = MMSI_ALIAS.get(reported_mmsi, reported_mmsi)
     except Exception:
         return None
     if mmsi not in whitelist:
@@ -154,6 +159,7 @@ def normalize_one(raw: dict, fmap: dict, qc: dict, centers: dict, buffer_nm: flo
         "timestamp": timestamp.isoformat(),
         "provider_observation_basis": observation_basis,
         "mmsi": mmsi,
+        "reported_mmsi": reported_mmsi,
         "latitude": lat,
         "longitude": lon,
         "sog": sog,
@@ -208,23 +214,24 @@ def append_raw(payload: Any, raw_dir: Path) -> None:
 
 
 def rejection_reason(raw: dict, fmap: dict, centers: dict, buffer_nm: float, whitelist: set[int]) -> tuple[str | None, int | None]:
-    """Return why an API row is rejected. MMSI is never rewritten/aliased."""
+    """Apply the same approved provider ID mapping before whitelist validation."""
     try:
-        mmsi=int(raw.get(fmap["mmsi"]))
+        reported_mmsi=int(raw.get(fmap["mmsi"]))
+        mmsi=MMSI_ALIAS.get(reported_mmsi, reported_mmsi)
     except Exception:
         return "INVALID_MMSI", None
     if mmsi not in whitelist:
-        return "MMSI_NOT_IN_WHITELIST", mmsi
+        return "MMSI_NOT_IN_WHITELIST", reported_mmsi
     lat=safe_float(raw.get(fmap["latitude"]))
     lon=safe_float(raw.get(fmap["longitude"]))
     if lat is None or lon is None or not (-90 <= lat <= 90 and -180 <= lon <= 180):
-        return "INVALID_POSITION", mmsi
+        return "INVALID_POSITION", reported_mmsi
     names=list(centers)
     if len(names)==2:
         d=point_segment_distance_nm(lat, lon, centers[names[0]], centers[names[1]])
         if d > buffer_nm:
-            return "OUTSIDE_CORRIDOR", mmsi
-    return None, mmsi
+            return "OUTSIDE_CORRIDOR", reported_mmsi
+    return None, reported_mmsi
 
 
 def poll_once(root: Path, cfg: dict) -> tuple[int, int]:
@@ -260,12 +267,6 @@ def poll_once(root: Path, cfg: dict) -> tuple[int, int]:
         reason, reported_mmsi = rejection_reason(raw, fmap, centers, buffer_nm, whitelist)
         if reason:
             rejected.append({"mmsi": reported_mmsi, "reason": reason})
-
-    rejected=[]
-    for raw in rows:
-        reason, reported_mmsi = rejection_reason(raw, fmap, centers, buffer_nm, whitelist)
-        if reason:
-            rejected.append({"mmsi": reported_mmsi, "reason": reason})
     out = pd.DataFrame(normalized)
     if not out.empty:
         out["timestamp"] = pd.to_datetime(out["timestamp"], utc=True)
@@ -290,7 +291,7 @@ def poll_once(root: Path, cfg: dict) -> tuple[int, int]:
 
     if bool(api.get("append_history", False)):
         # Keep the existing historical CSV schema and column order unchanged.
-        append_csv(pd.DataFrame(normalized).drop(columns=["provider_observation_basis"],errors="ignore"), root / api["history_file"])
+        append_csv(pd.DataFrame(normalized).drop(columns=["provider_observation_basis","reported_mmsi"],errors="ignore"), root / api["history_file"])
     return len(rows), len(vessels)
 
 

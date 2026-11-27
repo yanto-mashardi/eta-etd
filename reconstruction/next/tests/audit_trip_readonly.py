@@ -6,7 +6,7 @@ import argparse,json
 from datetime import datetime,timedelta
 from pathlib import Path
 from trajectories import records,normalize,WIB
-from events import dt
+from events import dt,canonical_mmsi
 from evaluation import row_start
 
 def main():
@@ -33,7 +33,7 @@ def main():
     day=start.astimezone(WIB).date()
     while day<=end.astimezone(WIB).date():
         for r,rx in records(Path(a.ais),day):
-            if str(r.get("mmsi",r.get("immsi",""))).strip()!=a.mmsi:continue
+            if canonical_mmsi(r.get("mmsi",r.get("immsi","")))!=a.mmsi:continue
             x=normalize(r,rx,day)
             if not x or not start<=dt(x["ts"])<=end:continue
             key=x["ts"]; signature=(x["lat"],x["lon"],x["sog"])

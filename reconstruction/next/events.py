@@ -9,6 +9,11 @@ from zoneinfo import ZoneInfo
 PORTS={"BENGKALIS":{"BKL-01":(1.449921,102.136747),"BKL-02":(1.449491,102.138242)},
        "PAKNING":{"PKN-01":(1.380001,102.148561),"PKN-02":(1.37879,102.149836)}}
 MMSI={"525002060","525002121","525003298","525015047","525100240"}
+# Provider alias preserved from the verified VPS receiver; not an independently verified registration.
+MMSI_ALIAS={"50862783":"525100240"}
+def canonical_mmsi(value):
+    m=str(value).strip()
+    return MMSI_ALIAS.get(m,m)
 def dt(s):
     t=datetime.fromisoformat(str(s).replace("Z","+00:00"))
     if t.tzinfo is None: raise ValueError("AIS timestamp must include UTC offset")
@@ -26,7 +31,7 @@ def geometry(lat,lon,sog):
 
 def evidence(p):
     if not p:return None
-    return {k:p.get(k) for k in ("ts","received","source_fix_utc","observation_utc","provider_observation_basis","clock_basis","latitude","longitude","sog","port","berth","distance","candidate")}
+    return {k:p.get(k) for k in ("ts","received","reported_mmsi","source_fix_utc","observation_utc","provider_observation_basis","clock_basis","latitude","longitude","sog","port","berth","distance","candidate")}
 
 def quality(row,now):
     try:
@@ -36,7 +41,7 @@ def quality(row,now):
 
 def classify(row,now,field="ais_update_at"):
     if str(row.get("inference_allowed","")).lower() not in ("true","1"): raise ValueError("AIS inference not permitted")
-    m=str(row["mmsi"]).strip()
+    m=canonical_mmsi(row["mmsi"])
     if m not in MMSI: raise ValueError("Vessel outside research scope")
     stamp=dt(row[field])
     if not 0<=(now-stamp).total_seconds()<=300: raise ValueError("Stale or future AIS fix")
@@ -45,7 +50,7 @@ def classify(row,now,field="ais_update_at"):
     try: cog=float(row.get("cog",""))
     except (TypeError,ValueError): cog=None
     if cog is not None and not (0<=cog<360): cog=None
-    return dict(mmsi=m,ts=stamp.isoformat(),received=now.isoformat(),sog=sog,cog=cog,latitude=lat,longitude=lon,**geometry(lat,lon,sog))
+    return dict(mmsi=m,reported_mmsi=str(row.get("reported_mmsi") or row["mmsi"]),ts=stamp.isoformat(),received=now.isoformat(),sog=sog,cog=cog,latitude=lat,longitude=lon,**geometry(lat,lon,sog))
 def cycle_key(c): return (str(c["mmsi"]),dt(c["D0_utc"]).isoformat(),dt(c["A_utc"]).isoformat(),dt(c["D1_utc"]).isoformat())
 def clean_cycle(c):
     key=cycle_key(c); d0,a,d1=key[1:]

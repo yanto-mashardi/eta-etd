@@ -4,7 +4,7 @@ from datetime import datetime,timedelta
 from pathlib import Path
 from urllib.request import urlopen
 from collections import Counter,defaultdict
-from events import dt,minutes
+from events import dt,minutes,canonical_mmsi
 from trajectories import records,normalize,WIB
 
 def same(a,b):
@@ -99,7 +99,7 @@ def raw_evidence(ais,day,cycles):
             targets[str(r["mmsi"])].append(dict(trip_id=r["trip_id"],phase=phase,target=dt(r[k]),expected_port=r["origin_port"] if phase=="D0" else r["destination_port"],before=None,after=None,source_first=None,source_changed=False,source_count=0,source_best=None))
     if not targets:return
     for row,rx in records(ais,day):
-        m=str(row.get("mmsi",row.get("immsi",""))).strip()
+        m=canonical_mmsi(row.get("mmsi",row.get("immsi","")))
         if m not in targets:continue
         p=normalize(row,rx,day)
         if not p:continue

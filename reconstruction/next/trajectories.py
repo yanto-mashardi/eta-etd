@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import datetime,date,timedelta,timezone
 from zoneinfo import ZoneInfo
 from collections import defaultdict,Counter
-from events import MMSI,PORTS,dt,geometry,minutes
+from events import MMSI,PORTS,dt,geometry,minutes,canonical_mmsi
 WIB=ZoneInfo("Asia/Jakarta")
 MAX_GAP=10
 _lock=threading.Lock()
@@ -54,7 +54,7 @@ def normalize(r,received,day,diagnostics=None):
         if diagnostics is not None:diagnostics[reason]+=1
         return None
     try:
-        m=str(r.get("mmsi",r.get("immsi",""))).strip()
+        m=canonical_mmsi(r.get("mmsi",r.get("immsi","")))
         if m not in MMSI:return reject('MMSI_OUTSIDE_SCOPE')
         raw=json.loads(r.get("raw_json") or "{}")
         if not isinstance(raw,dict):return reject('RAW_NOT_OBJECT')
@@ -75,7 +75,7 @@ def normalize(r,received,day,diagnostics=None):
         source=r.get("ais_update_at") or r.get("update_at") or raw.get("update_at") or raw.get("ais_update_at")
         try:source=dt(source).isoformat()
         except (ValueError,TypeError):source=None
-        return dict(mmsi=m,shipname=str(r.get("shipname") or m),ts=stamp.isoformat(),received=rx.isoformat(),source_fix_utc=source,observation_utc=stamp.isoformat(),clock_basis="HISTORICAL_OBSERVATION",lat=lat,lon=lon,latitude=lat,longitude=lon,sog=sog,cog=None,**geometry(lat,lon,sog))
+        return dict(mmsi=m,reported_mmsi=str(r.get("reported_mmsi") or r.get("mmsi",r.get("immsi",""))),shipname=str(r.get("shipname") or m),ts=stamp.isoformat(),received=rx.isoformat(),source_fix_utc=source,observation_utc=stamp.isoformat(),clock_basis="HISTORICAL_OBSERVATION",lat=lat,lon=lon,latitude=lat,longitude=lon,sog=sog,cog=None,**geometry(lat,lon,sog))
     except (ValueError,TypeError,KeyError,OverflowError):return reject('INVALID_FIELD')
 def split_trips(points,journal=()):
     """Associate observations with stored journal intervals, never infer a second D0/A/D1."""
@@ -116,7 +116,7 @@ def daily(ais,day,journal=()):
         _cache.clear()
         groups=defaultdict(dict);conflicts=set();diagnostics=defaultdict(Counter);seen_names={}
         for r,rx in records(ais,day):
-            m=str(r.get('mmsi',r.get('immsi',''))).strip()
+            m=canonical_mmsi(r.get('mmsi',r.get('immsi','')))
             if m not in MMSI:continue
             diagnostics[m]['SOURCE_RECORDS']+=1
             if r.get('shipname'):seen_names[m]=r['shipname']
