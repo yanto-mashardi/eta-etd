@@ -112,7 +112,8 @@ drawMarkers(rows,valid);
 function terminalInsetBounds(terminal){
  const local=berths.filter(b=>b[1]===terminal);
  const xs=local.map(b=>b[3]),ys=local.map(b=>b[2]);
- const shore=.0004,sea=.0023,side=.0010;
+ const isPakning=terminal==='PAKNING';
+ const shore=isPakning ? .00030 : .0004,sea=isPakning ? .00155 : .0023,side=isPakning ? .00065 : .0010;
  const south=terminal==='BENGKALIS'?sea:shore;
  const north=terminal==='BENGKALIS'?shore:sea;
  return [[Math.min(...xs)-side,Math.min(...ys)-south],[Math.max(...xs)+side,Math.max(...ys)+north]];
