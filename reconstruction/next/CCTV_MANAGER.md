@@ -6,3 +6,6 @@ Larix: full URL. OBS Custom and VIGI: server plus stream key; full URL alternati
 
 ## Larix two-component path migration
 Larix rejects a single path component. Use application live and stream key bengkalis/pakning, with query credentials. RTSP clients must update to /live/bengkalis and /live/pakning once. Installer migrates existing manager JSON and publisher/reader permissions, retains credentials and root-only backup. Password policy permits 6–128 URL-safe characters for publishers; strong passwords remain recommended on public internet. Admin token and reader password unchanged. Actual streaming and reload tests pending.
+
+## Reader accounts and VPS-only token rotation
+Existing campus_reader remains operational; campus_validation is disabled until configured. Both accounts grant read only, selectable per port. Changes apply to new RTSP sessions; existing sessions may persist. For immediate revocation, restart cctv-relay.service from VPS (interrupts both publishers and readers briefly). No change to YOLO ingestion token. Rotate admin token only with root command bash rotate_cctv_admin_token.sh; service restart invalidates old token, new token remains root-only. No web rotation endpoint. Tests supplied, VPS execution pending.

@@ -3,7 +3,7 @@ import os,json,hmac,re,time,tempfile,threading,logging
 from pathlib import Path
 from datetime import datetime,timezone
 from urllib.request import Request,urlopen
-from urllib.parse import urlencode
+from urllib.parse import urlencode,quote
 from urllib.error import HTTPError,URLError
 from fastapi import APIRouter,Header,HTTPException,Response
 from pydantic import BaseModel,Field
@@ -75,7 +75,7 @@ def status(response:Response,authorization:str=Header(default="")):
 def change(port:str,body:Change,response:Response,authorization:str=Header(default="")):
     admin(authorization);response.headers["Cache-Control"]="no-store"
     if port not in PORTS:raise HTTPException(404,"Unknown port")
-    if body.username in ("any","campus_reader"):raise HTTPException(422,"Reserved username")
+    if body.username in ("any","campus_reader","campus_validation"):raise HTTPException(422,"Reserved username")
     if body.password and not re.fullmatch(r"[A-Za-z0-9_-]{6,128}",body.password):raise HTTPException(422,"Password: 6–128 letters, digits, underscore or hyphen")
     with LOCK:
         cfg=read(CONFIG);meta=read(META);old=publisher(cfg,port)
@@ -112,3 +112,61 @@ def change(port:str,body:Change,response:Response,authorization:str=Header(defau
         write(META,meta,0o600)
         logging.info("CCTV configuration changed: port=%s enabled=%s credentials_changed=%s",port,body.enabled,changed)
         return view(port,updated,meta)
+
+# Reader permissions never grant publish or API access.
+READER_NAMES=("campus_reader","campus_validation")
+def reader_account(cfg,name):
+    if name not in READER_NAMES:raise HTTPException(404,"Unknown reader")
+    u=next((u for u in cfg["authInternalUsers"] if u["user"]==name),None)
+    if u and (not u.get("permissions") or any(p.get("action")!="read" or p.get("path") not in ["live/"+x for x in PORTS] for p in u["permissions"])):
+        raise HTTPException(409,"Unexpected reader permissions")
+    return u
+def reader_view(cfg,name):
+    u=reader_account(cfg,name)
+    return {"username":name,"enabled":bool(u),"ports":[p["path"].split("/")[-1] for p in u["permissions"]] if u else []}
+class ReaderChange(BaseModel):
+    password:str=Field(default="",max_length=128)
+    enabled:bool=True
+    ports:list[str]=Field(default_factory=lambda:list(PORTS))
+def reader_users(cfg,name,body):
+    old=reader_account(cfg,name)
+    if body.password and not re.fullmatch(r"[A-Za-z0-9_-]{6,128}",body.password):raise HTTPException(422,"Password: 6–128 URL-safe characters")
+    if not set(body.ports)<=set(PORTS) or (body.enabled and not body.ports):raise HTTPException(422,"Select valid ports")
+    password=body.password or (old or {}).get("pass","")
+    if body.enabled and not password:raise HTTPException(422,"Set a password for new reader")
+    users=[u for u in cfg["authInternalUsers"] if u is not old]
+    if body.enabled:users.append({"user":name,"pass":password,"permissions":[{"action":"read","path":"live/"+port} for port in PORTS if port in body.ports]})
+    return users
+@router.get("/readers/accounts")
+def readers(response:Response,authorization:str=Header(default="")):
+    admin(authorization);response.headers["Cache-Control"]="no-store"
+    with LOCK:return {"accounts":[reader_view(read(CONFIG),name) for name in READER_NAMES]}
+@router.put("/readers/accounts/{name}")
+def update_reader(name:str,body:ReaderChange,response:Response,authorization:str=Header(default="")):
+    admin(authorization);response.headers["Cache-Control"]="no-store"
+    with LOCK:
+        cfg=read(CONFIG);updated=dict(cfg);updated["authInternalUsers"]=reader_users(cfg,name,body)
+        before=reader_account(cfg,name);after=reader_account(updated,name)
+        if before!=after:
+            write(CONFIG,updated)
+            try:
+                for _ in range(24):
+                    time.sleep(.25)
+                    active=relay("/v3/config/global/get") or {}
+                    if "authInternalUsers" not in active:continue
+                    u=reader_account(active,name)
+                    if after is None and u is None:break
+                    if after and u and u.get("pass")==after["pass"] and {(p["action"],p["path"]) for p in u["permissions"]}=={(p["action"],p["path"]) for p in after["permissions"]}:break
+                else:raise HTTPException(503,"Reader configuration not applied")
+            except Exception:
+                write(CONFIG,cfg)
+                raise
+            logging.info("RTSP reader configuration changed: %s",name)
+        return reader_view(updated,name)
+@router.post("/readers/accounts/{name}/connection")
+def reader_connection(name:str,response:Response,authorization:str=Header(default="")):
+    admin(authorization);response.headers["Cache-Control"]="no-store"
+    with LOCK:
+        u=reader_account(read(CONFIG),name)
+        if not u:raise HTTPException(409,"Reader disabled")
+        return {"urls":{p["path"].split("/")[-1]:"rtsp://"+quote(name,safe="")+":"+quote(u["pass"],safe="")+"@"+HOST+":8554/"+p["path"] for p in u["permissions"]}}
