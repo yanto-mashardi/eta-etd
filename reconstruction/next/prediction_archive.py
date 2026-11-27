@@ -66,4 +66,7 @@ def sync(root):
         except (OSError,ValueError):continue
         if info.get("csv_sha256")==hashlib.sha256(path.read_bytes()).hexdigest():
             path.unlink();receipt.unlink()
-if __name__=="__main__":sync(Path(sys.argv[1]))
+if __name__=="__main__":
+    root=Path(sys.argv[1]);sync(root)
+    from vehicle_archive import sync as sync_vehicles
+    sync_vehicles(root,atomic_file)
