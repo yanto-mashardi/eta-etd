@@ -55,9 +55,14 @@ def record_trip(state,m,v,cycle=None,status=None,observed_exit=None):
     last=v.get("last") or {}
     s=v.get("stop") or {}
     if q.get("A_utc") and s.get("port")==q["destination_port"]:
-        b=berth_of(v)
-        if b:row["arrival_berth"]=b
-    row["departure_berth"]=row.get("arrival_berth",previous.get("arrival_berth"))
+        confirmed=berth_of(v)
+        fix=s.get("last") or last
+        nearest=fix.get("berth") if fix.get("candidate") and fix.get("port")==q["destination_port"] and fix.get("berth") else None
+        b=nearest or confirmed
+        if b:
+            row["arrival_berth"]=b
+            row["berth_quality"]="CONFIRMED" if b==confirmed else "NEAREST"
+    row["departure_berth"]=row.get("arrival_berth") or previous.get("arrival_berth") or previous.get("departure_berth")
     row["shipname"]=v.get("shipname") or previous.get("shipname") or m
     row["sog"]=last.get("sog")
     row["last_fix_utc"]=last.get("ts")
@@ -70,8 +75,10 @@ def record_trip(state,m,v,cycle=None,status=None,observed_exit=None):
     row["last_clock_basis"]=last.get("clock_basis","AIS_UPDATE")
     row["status"]=status or ("COMPLETED_QC_PASS" if cycle else v.get("status","ONGOING"))
     # Never erase already published values or confirmed berth evidence with a missing field.
-    journal[key]={**previous,**{k:x for k,x in row.items() if x is not None}}
-    if not q.get("D0_utc"):journal[key]["D0_utc"]=None
+    merged={**previous,**{k:x for k,x in row.items() if x is not None}}
+    if not q.get("D0_utc"):merged["D0_utc"]=None
+    # Compute after merging frozen predictions and observed D1, including recovered trips.
+    journal[key]=with_vtt(merged)
 
 def timing_comparison(actual,estimate,published):
     if not (actual and estimate and published) or dt(published)>=dt(actual):return None
@@ -80,8 +87,25 @@ def timing_comparison(actual,estimate,published):
 def with_vtt(row):
     out=dict(row)
     out['eta_error_min']=timing_comparison(row.get('ATA'),row.get('eta_corrected'),row.get('early_published_at'))
-    out['vtt_conventional_min']=delta(row.get('ATA'),row.get('etd_arrival'))
-    out['vtt_real_min']=delta(row.get('ATA'),row.get('etd_real')) if row.get('status') in ('COMPLETED_QC_PASS','COMPLETED_QC_FAIL') else None
+    status=row.get("status","")
+    real=row.get("etd_real") if status in ("COMPLETED_QC_PASS","COMPLETED_QC_FAIL") else None
+    ata=row.get("ATA")
+    # An observed departure before its arrival cannot be evaluated as a turnaround.
+    invalid=bool(real and ata and dt(real)<dt(ata))
+    if invalid:real=None
+    early_pub=row.get("early_published_at") if row.get("etd_early") else None
+    conv_pub=row.get("arrival_published_at") if row.get("etd_arrival") else None
+    for prefix,estimate,published in (("early",row.get("etd_early"),early_pub),("arrival",row.get("etd_arrival"),conv_pub)):
+        error=timing_comparison(real,estimate,published)
+        out[prefix+"_error_min"]=round(error,3) if error is not None else None
+        out[prefix+"_abs_error_min"]=round(abs(error),3) if error is not None else None
+    out["lead_advantage_min"]=delta(early_pub,conv_pub) if early_pub and conv_pub and dt(early_pub)<=dt(conv_pub) else None
+    out["lead_to_departure_min"]=delta(early_pub,real) if early_pub and real and dt(early_pub)<dt(real) else None
+    out["evaluation_scope"]="INVALID_ACTUAL" if invalid else "RESEARCH_QC_PASS" if real and status=="COMPLETED_QC_PASS" and row.get("D0_utc") and ata else "OPERATIONAL_QC_FAIL" if status=="COMPLETED_QC_FAIL" else "ARRIVAL_ONLY" if row.get("record_type")=="ARRIVAL_ONLY" else "INCOMPLETE" if status.startswith("INCOMPLETE_") else "PENDING"
+    if not out.get("departure_berth") and out.get("arrival_berth"):out["departure_berth"]=out["arrival_berth"]
+    if out.get("arrival_berth") and not out.get("berth_quality"):out["berth_quality"]="CONFIRMED"
+    out['vtt_conventional_min']=delta(ata,row.get('etd_arrival'))
+    out['vtt_real_min']=delta(ata,real)
     for phase in ('early','conventional'):
         base=out.get('vtt_'+phase+'_base_min'); corrected=out.get('vtt_'+phase+'_min')
         out['vtt_'+phase+'_correction_min']=round(corrected-base,3) if base is not None and corrected is not None else None

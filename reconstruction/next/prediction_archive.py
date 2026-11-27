@@ -5,7 +5,7 @@ from datetime import datetime,timedelta
 from collections import defaultdict
 from events import dt
 from evaluation import WIB,with_vtt,trip_key,row_start
-FIELDS="trip_id mmsi shipname origin_port destination_port status D0_utc arrival_berth departure_berth sog last_fix_utc eta_base eta_corrected eta_correction_min ATA vtt_early_min etd_early etd_arrival etd_real early_error_min arrival_error_min early_abs_error_min arrival_abs_error_min early_published_at arrival_published_at lead_advantage_min lead_to_departure_min release_early release_arrival vtt_conventional_min vtt_real_min vtt_early_base_min vtt_conventional_base_min vtt_early_correction_min vtt_conventional_correction_min eta_error_min event_quality event_qc_flags publication_protocol last_source_fix_utc last_clock_basis record_type".split()
+FIELDS="trip_id mmsi shipname origin_port destination_port status D0_utc arrival_berth departure_berth sog last_fix_utc eta_base eta_corrected eta_correction_min ATA vtt_early_min etd_early etd_arrival etd_real early_error_min arrival_error_min early_abs_error_min arrival_abs_error_min early_published_at arrival_published_at lead_advantage_min lead_to_departure_min release_early release_arrival vtt_conventional_min vtt_real_min vtt_early_base_min vtt_conventional_base_min vtt_early_correction_min vtt_conventional_correction_min eta_error_min event_quality event_qc_flags publication_protocol last_source_fix_utc last_clock_basis record_type berth_quality evaluation_scope".split()
 def groups(state):
     out=defaultdict(list)
     for r in state.get("trip_monitor",{}).values():
