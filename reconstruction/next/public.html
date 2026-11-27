@@ -108,15 +108,22 @@ lastRows=rows;lastValid=valid;
 
 drawMarkers(rows,valid);
 }
-function initInset(){
- const local=berths.filter(b=>b[1]===port);
+// Keep both berths in view; bias the detail camera toward the strait.
+function terminalInsetBounds(terminal){
+ const local=berths.filter(b=>b[1]===terminal);
  const xs=local.map(b=>b[3]),ys=local.map(b=>b[2]);
- const bounds=[[Math.min(...xs)-.0055,Math.min(...ys)-.0055],[Math.max(...xs)+.0055,Math.max(...ys)+.0055]];
+ const shore=.0004,sea=.0023,side=.0010;
+ const south=terminal==='BENGKALIS'?sea:shore;
+ const north=terminal==='BENGKALIS'?shore:sea;
+ return [[Math.min(...xs)-side,Math.min(...ys)-south],[Math.max(...xs)+side,Math.max(...ys)+north]];
+}
+function initInset(){
+ const bounds=terminalInsetBounds(port);
  try{
- insetMap=new maplibregl.Map({container:$('insetMap'),style:styleUrl,center:[(bounds[0][0]+bounds[1][0])/2,(bounds[0][1]+bounds[1][1])/2],zoom:14,interactive:false,attributionControl:false});
+ insetMap=new maplibregl.Map({container:$('insetMap'),style:styleUrl,center:[(bounds[0][0]+bounds[1][0])/2,(bounds[0][1]+bounds[1][1])/2],zoom:16,interactive:false,attributionControl:false});
  insetMap.addControl(new maplibregl.ScaleControl({maxWidth:56,unit:'metric'}),'bottom-left');
  insetMap.addControl(new maplibregl.AttributionControl({compact:true}),'bottom-right');
- const fit=()=>{if(insetMap)insetMap.fitBounds(bounds,{padding:{top:24,bottom:17,left:10,right:10},duration:0,maxZoom:16})};
+ const fit=()=>{if(insetMap)insetMap.fitBounds(bounds,{padding:{top:24,bottom:17,left:10,right:10},duration:0,maxZoom:17.5})};
  insetMap.on('load',()=>{fit();drawMarkers(lastRows,lastValid)});
  insetMap.on('move',()=>arrangeLabels(insetMap,insetMarkers));
  insetMap.on('resize',fit);
