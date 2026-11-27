@@ -54,7 +54,7 @@ class OperationalTracker(Tracker):
                 s=dict(port=p["port"],first=p,last=p,n=0,votes={},bracket=prev["ts"] if prev and not prev["candidate"] and not gap else None,confirmed=False)
                 s["arrival_moving_bracket"]=bool(prev and not prev["candidate"] and prev["sog"]>.8 and not gap)
                 v["stop"]=s
-            s["n"]+=1;s["last"]=p
+            s["n"]+=1;s["last"]=p;s["last_inside"]=p
             if proxy:s["proxy_clock"]=True
             if not p["ambiguous"]:s["votes"][p["berth"]]=s["votes"].get(p["berth"],0)+1
             if not s["confirmed"] and s["n"]>=3 and minutes(s["first"]["ts"],p["ts"])>=4 and (not s["bracket"] or minutes(s["bracket"],s["first"]["ts"])<=10):
@@ -73,21 +73,28 @@ class OperationalTracker(Tracker):
             if q and s["confirmed"] and not q.get("A_confirmed_at"):
                 q["A_confirmed_at"]=p["received"]
             v["status"]="BERTHED" if q and q.get("A_utc") or s["confirmed"] else "ARRIVAL_CANDIDATE"
+        elif s and p["port"]==s["port"] and p["distance"]<=.15:
+            # A moving fix inside the same existing berth area is a manoeuvre,
+            # not D0/D1. Keep the original A, trip and frozen forecasts.
+            s["last_inside"]=p
+            if proxy:s["proxy_clock"]=True
+            v["status"]="BERTH_MANEUVER"
         elif p["sog"]>.8 and s:
             origin=s["port"];dest=next(k for k in PORTS if k!=origin)
+            bracket=s.get("last_inside") or s["last"]
             # A distant fix after missing AIS cannot establish a departure timestamp.
-            if minutes(s["last"]["ts"],p["ts"])>10 and (p["port"]!=origin or p["distance"]>.15):
+            if minutes(bracket["ts"],p["ts"])>10 and (p["port"]!=origin or p["distance"]>.15):
                 v.update(stop=None,voyage=None,status="AIS_GAP",predictions={})
             else:
                 origin_flags=[]
                 if proxy or s.get("proxy_clock"):origin_flags.append("PROVIDER_OBSERVATION_CLOCK")
                 if not s["confirmed"]:origin_flags.append("ORIGIN_STOP_UNCONFIRMED")
                 if not s["bracket"]:origin_flags.append("ORIGIN_BRACKET_MISSING")
-                if minutes(s["last"]["ts"],p["ts"])>10:origin_flags.append("DEPARTURE_BRACKET_GAP")
+                if minutes(bracket["ts"],p["ts"])>10:origin_flags.append("DEPARTURE_BRACKET_GAP")
                 if q and q.get("A_utc") and q["destination_port"]==origin:
                     if not s["confirmed"]:flag("ARRIVAL_STOP_UNCONFIRMED")
                     if s.get("proxy_clock"):flag("PROVIDER_OBSERVATION_CLOCK")
-                    if minutes(s["last"]["ts"],p["ts"])>10:flag("DEPARTURE_BRACKET_GAP")
+                    if minutes(bracket["ts"],p["ts"])>10:flag("DEPARTURE_BRACKET_GAP")
                     v["operational_exit"]={"trip_id":trip_key(p["mmsi"],q),"D1_utc":p["ts"],"qc_flags":list(q.get("qc_flags",[]))}
                     try:
                         if not q.get("D0_utc"):raise ValueError("Arrival-only record")

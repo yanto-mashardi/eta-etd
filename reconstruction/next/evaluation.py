@@ -37,6 +37,8 @@ def evaluate(m,voyage,predictions,cycle=None):
         "lead_advantage_min":delta(issued,arrived) if comparable else None,
         "lead_to_departure_min":delta(issued,real) if early_ok else None,
         "release_early":d.get("release"),"release_arrival":a.get("release"),
+        "prediction_status_early":d.get("status"),"prediction_status_arrival":a.get("status"),
+        "prediction_error_early":d.get("error"),"prediction_error_arrival":a.get("error"),
         "status":"COMPLETED_QC_PASS" if cycle else "ONGOING"}
 
 def berth_of(v):
@@ -128,7 +130,7 @@ def active_trip_rows(state):
         if not q:continue
         key=trip_key(m,q)
         row=journal.get(key)
-        if row and row["status"] in ("SAILING","ARRIVAL_CANDIDATE","BERTHED","DEPARTURE_PENDING"):
+        if row and row["status"] in ("SAILING","ARRIVAL_CANDIDATE","BERTHED","DEPARTURE_PENDING","BERTH_MANEUVER"):
             result[m]=with_vtt(row)
     return result
 

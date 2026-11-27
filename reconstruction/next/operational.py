@@ -58,6 +58,10 @@ def publish(ais_rows,ais_status,now,journal,active,states):
                     issue("ARRIVAL_NOT_OBSERVED" if s.get("status")=="BERTHED" else "NO_ACTIVE_TRIP")
                 pending(p["port"],v["status"])
                 continue
+        elif r.get("ATA") and s.get("status")=="BERTH_MANEUVER" and p["port"]==r["destination_port"] and p["distance"]<=.15:
+            # The same journal record remains active until an actual berth-area exit.
+            v["status"]="MANUVER DERMAGA"
+            for x in rows["departures"]:x["board_status"]=v["status"]
         elif r.get("ATA"):
             issue("AIS_DEPARTURE_PENDING")
             pending(r["destination_port"],"MENUNGGU EVENT BERANGKAT")
